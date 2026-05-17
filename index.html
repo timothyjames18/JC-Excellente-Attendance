@@ -1,0 +1,114 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Login — JCExcellente Christian Academy</title>
+  <link rel="stylesheet" href="assets/css/style.css" />
+</head>
+<body>
+<div class="login-page">
+  <div class="login-card">
+    <img src="assets/images/logo.png" alt="School Logo" class="login-logo" />
+    <div class="login-school">JCExcellente Christian Academy</div>
+    <div class="login-subtitle">QR Attendance System</div>
+
+    <div id="error-msg" class="alert alert-error hidden"></div>
+
+    <form class="login-form" id="login-form" novalidate>
+      <div class="form-group">
+        <label class="form-label" for="email">Email Address</label>
+        <input
+          type="email"
+          id="email"
+          class="form-control"
+          placeholder="your@email.com"
+          required
+          autocomplete="email"
+        />
+      </div>
+      <div class="form-group">
+        <label class="form-label" for="password">Password</label>
+        <input
+          type="password"
+          id="password"
+          class="form-control"
+          placeholder="Enter password"
+          required
+          autocomplete="current-password"
+        />
+      </div>
+      <button type="submit" class="btn btn-primary login-btn" id="login-btn">
+        Sign In
+      </button>
+    </form>
+  </div>
+</div>
+
+<script type="module">
+  import { login, onAuthStateChanged, basePath }
+    from "./assets/js/auth.js";
+  import { auth } from "./firebase-config.js";
+  import { doc, getDoc }
+    from "https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore.js";
+  import { db } from "./firebase-config.js";
+
+  const ROLE_PATHS = {
+    principal: "/principal/index.html",
+    teacher:   "/teacher/index.html",
+    registrar: "/registrar/index.html",
+    scanner:   "/scanner/index.html",
+  };
+
+  // If already logged in, redirect immediately
+  onAuthStateChanged(async (user) => {
+    if (user) {
+      try {
+        const snap = await getDoc(doc(db, "users", user.uid));
+        if (snap.exists()) {
+          const role = snap.data().role;
+          const dest = ROLE_PATHS[role];
+          if (dest) {
+            window.location.href = basePath() + dest;
+            return;
+          }
+        }
+      } catch (_) {}
+    }
+  });
+
+  const form    = document.getElementById("login-form");
+  const errEl   = document.getElementById("error-msg");
+  const loginBtn = document.getElementById("login-btn");
+
+  form.addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const email    = document.getElementById("email").value.trim();
+    const password = document.getElementById("password").value;
+
+    if (!email || !password) {
+      showError("Please enter your email and password.");
+      return;
+    }
+
+    loginBtn.disabled     = true;
+    loginBtn.textContent  = "Signing in…";
+    errEl.classList.add("hidden");
+
+    const result = await login(email, password);
+
+    if (!result.ok) {
+      showError(result.error);
+      loginBtn.disabled    = false;
+      loginBtn.textContent = "Sign In";
+    }
+    // On success, login() already redirects — no further action needed.
+  });
+
+  function showError(msg) {
+    errEl.textContent = msg;
+    errEl.classList.remove("hidden");
+  }
+</script>
+</body>
+</html>

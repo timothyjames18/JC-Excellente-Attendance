@@ -1,0 +1,120 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Scanner — JCExcellente Attendance</title>
+  <link rel="stylesheet" href="../assets/css/style.css" />
+  <!-- jsQR: QR decoder library -->
+  <script src="https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.js"></script>
+  <style>
+    body { margin: 0; background: #000; }
+    .scanner-page { min-height: 100vh; background: #111; }
+    .scanner-header-bar {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 10px 14px; background: #1a1a1a; border-bottom: 1px solid #333;
+    }
+    .scanner-header-bar .brand { display: flex; flex-direction: column; }
+    .scanner-header-bar .school-name { color: #4ade80; font-size: .82rem; font-weight: 700; }
+    .scanner-header-bar .sys-name   { color: #9ca3af; font-size: .68rem; }
+    #camera-wrap {
+      position: relative; width: 100%; max-width: 520px; margin: 0 auto;
+    }
+    #camera-video {
+      width: 100%; display: block; background: #000;
+      max-height: calc(100vh - 160px); object-fit: cover;
+    }
+    #camera-canvas { display: none; }
+    .scan-overlay {
+      position: absolute; inset: 0; pointer-events: none;
+      display: flex; align-items: center; justify-content: center;
+    }
+    .scan-box {
+      width: 200px; height: 200px;
+      border: 3px solid rgba(255,255,255,.85); border-radius: 14px;
+      box-shadow: 0 0 0 9999px rgba(0,0,0,.4);
+      animation: scanpulse 2s ease-in-out infinite;
+    }
+    @keyframes scanpulse {
+      0%,100% { border-color: rgba(255,255,255,.85); }
+      50% {
+        border-color: #4ade80;
+        box-shadow: 0 0 0 9999px rgba(0,0,0,.4), 0 0 20px #4ade80;
+      }
+    }
+    #scan-status {
+      color: #9ca3af; font-size: .82rem; text-align: center;
+      padding: 10px 16px; background: #1a1a1a;
+    }
+    #error-banner {
+      background: #7f1d1d; color: #fca5a5;
+      padding: 10px 16px; text-align: center; font-size: .85rem;
+    }
+    #scan-result { padding: 0 12px 12px; }
+    /* result card override for dark bg */
+    .result-inner { border-radius: 12px; overflow: hidden; }
+    .result-body  { background: #1f1f1f; border-top: none; }
+    .result-name  { color: #f9fafb; }
+    .result-section { color: #9ca3af; }
+    .nav-user-dark {
+      display: flex; align-items: center; gap: 10px;
+    }
+    .btn-logout-dark {
+      background: none; border: 1px solid #444; color: #9ca3af;
+      padding: 5px 12px; border-radius: 8px; font-size: .78rem; cursor: pointer;
+    }
+    .btn-logout-dark:hover { background: #333; color: #fff; }
+    #user-name-display { color: #9ca3af; font-size: .78rem; }
+  </style>
+</head>
+<body>
+<div class="scanner-page">
+
+  <!-- Header -->
+  <div class="scanner-header-bar">
+    <div class="brand">
+      <div class="school-name">JCExcellente Christian Academy</div>
+      <div class="sys-name">QR Attendance Scanner</div>
+    </div>
+    <div class="nav-user-dark">
+      <span id="user-name-display"></span>
+      <button class="btn-logout-dark" id="logout-btn">Sign Out</button>
+    </div>
+  </div>
+
+  <!-- Camera viewfinder -->
+  <div id="camera-wrap">
+    <video id="camera-video" playsinline muted></video>
+    <canvas id="camera-canvas"></canvas>
+    <div class="scan-overlay">
+      <div class="scan-box"></div>
+    </div>
+  </div>
+
+  <!-- Status bar -->
+  <div id="scan-status">Initializing camera…</div>
+
+  <!-- Error banner -->
+  <div id="error-banner" class="hidden"></div>
+
+  <!-- Result card -->
+  <div id="scan-result" class="hidden"></div>
+
+</div><!-- /scanner-page -->
+
+<script type="module">
+  import { requireRole, logout } from "../assets/js/auth.js";
+  import { init } from "../assets/js/scanner.js";
+
+  document.getElementById("logout-btn").addEventListener("click", logout);
+
+  // Auth guard + populate user name
+  requireRole("scanner", "principal", "teacher", "registrar")
+    .then((user) => {
+      document.getElementById("user-name-display").textContent = user.name || user.email;
+      init(); // start camera
+    })
+    .catch(() => {}); // requireRole already redirected
+</script>
+</body>
+</html>

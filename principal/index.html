@@ -1,0 +1,273 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Dashboard — JCExcellente Principal</title>
+  <link rel="stylesheet" href="../assets/css/style.css" />
+</head>
+<body>
+
+<!-- Header -->
+<header class="site-header">
+  <div class="header-inner">
+    <a class="header-brand" href="../index.html">
+      <img src="../assets/images/logo.png" alt="Logo" />
+      <div>
+        <div class="school-name">JCExcellente Christian Academy</div>
+        <div class="sys-name">Principal Dashboard</div>
+      </div>
+    </a>
+    <div class="nav-user">
+      <span id="user-name"></span>
+      <button class="btn-logout" id="logout-btn">Sign Out</button>
+    </div>
+  </div>
+</header>
+
+<div class="container page-wrap">
+  <div class="page-title">Attendance Overview</div>
+  <div class="page-sub">Summary and filterable attendance records.</div>
+
+  <!-- Summary cards (today) -->
+  <div class="stat-grid">
+    <div class="stat-card">
+      <div class="stat-value" id="stat-total">—</div>
+      <div class="stat-label">Total Students</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-value" id="stat-present">—</div>
+      <div class="stat-label">Present Today</div>
+    </div>
+    <div class="stat-card danger">
+      <div class="stat-value" id="stat-absent">—</div>
+      <div class="stat-label">Absent Today</div>
+    </div>
+    <div class="stat-card amber">
+      <div class="stat-value" id="stat-timeout">—</div>
+      <div class="stat-label">Left Today</div>
+    </div>
+  </div>
+
+  <!-- Filters -->
+  <div class="card mt-4 mb-4">
+    <div class="card-title">Filter Records</div>
+    <div class="filter-bar">
+      <div class="form-group">
+        <label class="form-label" for="date-from">From</label>
+        <input type="date" id="date-from" class="form-control" />
+      </div>
+      <div class="form-group">
+        <label class="form-label" for="date-to">To</label>
+        <input type="date" id="date-to" class="form-control" />
+      </div>
+      <div class="form-group">
+        <label class="form-label" for="section-filter">Section</label>
+        <select id="section-filter" class="form-control">
+          <option value="">All Sections</option>
+        </select>
+      </div>
+      <div style="align-self:flex-end;display:flex;gap:8px;">
+        <button class="btn btn-primary" id="apply-btn">Apply</button>
+        <button class="btn btn-outline" id="export-btn">⬇ Export CSV</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Table -->
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr>
+          <th>Date</th>
+          <th>Student Name</th>
+          <th>Section</th>
+          <th>Time In</th>
+          <th>Time Out</th>
+          <th>Status</th>
+        </tr>
+      </thead>
+      <tbody id="report-body">
+        <tr><td colspan="6" class="text-center" style="padding:32px;color:var(--muted);">
+          Select a date range and click Apply.
+        </td></tr>
+      </tbody>
+    </table>
+  </div>
+  <div id="row-count" style="font-size:.8rem;color:var(--muted);margin-top:8px;"></div>
+</div>
+
+<script type="module">
+  import { requireRole, logout }          from "../assets/js/auth.js";
+  import {
+    getStudents, getSections,
+    getAttendanceByDate, getAttendanceByRange, manilaDate
+  } from "../assets/js/firestore.js";
+
+  let sections    = [];
+  let currentRows = []; // for CSV export
+
+  document.getElementById("logout-btn").addEventListener("click", logout);
+
+  // Set default dates to today
+  const today = manilaDate();
+  document.getElementById("date-from").value = today;
+  document.getElementById("date-to").value   = today;
+
+  requireRole("principal")
+    .then(async (user) => {
+      document.getElementById("user-name").textContent = user.name || user.email;
+      [sections] = await Promise.all([getSections()]);
+      populateSectionFilter();
+      await loadTodaySummary();
+    })
+    .catch(() => {});
+
+  function populateSectionFilter() {
+    const sel = document.getElementById("section-filter");
+    sections.forEach(s => {
+      const o = document.createElement("option");
+      o.value = s.name;
+      o.textContent = s.name;
+      sel.appendChild(o);
+    });
+  }
+
+  // ── Today summary ───────────────────────────────────────────
+  async function loadTodaySummary() {
+    const [students, todayLogs] = await Promise.all([
+      getStudents(),
+      getAttendanceByDate(today)
+    ]);
+
+    const total    = students.length;
+    // unique student IDs that have time_in today
+    const presentIds = new Set(
+      todayLogs.filter(l => l.type === "time_in").map(l => l.student_id)
+    );
+    const leftIds = new Set(
+      todayLogs.filter(l => l.type === "time_out").map(l => l.student_id)
+    );
+    const absent = total - presentIds.size;
+
+    document.getElementById("stat-total").textContent   = total;
+    document.getElementById("stat-present").textContent = presentIds.size;
+    document.getElementById("stat-absent").textContent  = Math.max(0, absent);
+    document.getElementById("stat-timeout").textContent = leftIds.size;
+  }
+
+  // ── Apply filter ────────────────────────────────────────────
+  document.getElementById("apply-btn").addEventListener("click", async () => {
+    const dateFrom = document.getElementById("date-from").value;
+    const dateTo   = document.getElementById("date-to").value;
+    const section  = document.getElementById("section-filter").value;
+
+    if (!dateFrom || !dateTo) {
+      alert("Please select a date range.");
+      return;
+    }
+    if (dateTo < dateFrom) {
+      alert("'To' date must be on or after 'From' date.");
+      return;
+    }
+
+    const btn = document.getElementById("apply-btn");
+    btn.disabled = true; btn.textContent = "Loading…";
+
+    const { getAttendanceByRange } = await import("../assets/js/firestore.js");
+    const logs = await getAttendanceByRange(dateFrom, dateTo, section || null);
+
+    btn.disabled = false; btn.textContent = "Apply";
+    renderReport(logs);
+  });
+
+  function renderReport(logs) {
+    // Pivot to one row per student per day
+    const map = new Map(); // "date|studentId" → row
+    logs.forEach(log => {
+      const key = `${log.date}|${log.student_id}`;
+      if (!map.has(key)) {
+        map.set(key, {
+          date:    log.date,
+          name:    log.student_name,
+          section: log.section,
+          timeIn:  null,
+          timeOut: null,
+        });
+      }
+      const row = map.get(key);
+      if (log.type === "time_in"  && (!row.timeIn  || log.scan_time < row.timeIn))  row.timeIn  = log.scan_time;
+      if (log.type === "time_out" && (!row.timeOut || log.scan_time > row.timeOut)) row.timeOut = log.scan_time;
+    });
+
+    currentRows = [...map.values()];
+    currentRows.sort((a, b) => a.date.localeCompare(b.date) || a.name.localeCompare(b.name));
+
+    const tbody = document.getElementById("report-body");
+    document.getElementById("row-count").textContent =
+      `Showing ${currentRows.length} record${currentRows.length !== 1 ? "s" : ""}.`;
+
+    if (currentRows.length === 0) {
+      tbody.innerHTML = `<tr><td colspan="6" class="text-center"
+        style="padding:32px;color:var(--muted);">No records found for this period.</td></tr>`;
+      return;
+    }
+
+    tbody.innerHTML = currentRows.map(row => {
+      const timeIn   = row.timeIn  ? fmtTime(row.timeIn)  : "—";
+      const timeOut  = row.timeOut ? fmtTime(row.timeOut) : "—";
+      const status   = row.timeOut
+        ? '<span class="badge badge-amber">Left</span>'
+        : '<span class="badge badge-green">Present</span>';
+      return `<tr>
+        <td style="font-size:.82rem;">${esc(row.date)}</td>
+        <td style="font-weight:600;">${esc(row.name)}</td>
+        <td>${esc(row.section)}</td>
+        <td>${esc(timeIn)}</td>
+        <td>${esc(timeOut)}</td>
+        <td>${status}</td>
+      </tr>`;
+    }).join("");
+  }
+
+  // ── CSV Export ──────────────────────────────────────────────
+  document.getElementById("export-btn").addEventListener("click", () => {
+    if (currentRows.length === 0) {
+      alert("No data to export. Apply a filter first.");
+      return;
+    }
+    const header = ["Date", "Student Name", "Section", "Time In", "Time Out", "Status"];
+    const csvRows = [header, ...currentRows.map(row => [
+      row.date,
+      row.name,
+      row.section,
+      row.timeIn  ? fmtTime(row.timeIn)  : "",
+      row.timeOut ? fmtTime(row.timeOut) : "",
+      row.timeOut ? "Left" : "Present",
+    ])];
+    const csv = csvRows.map(r => r.map(cell => `"${String(cell).replace(/"/g,'""')}"`).join(",")).join("\n");
+    const blob = new Blob([csv], { type: "text/csv" });
+    const url  = URL.createObjectURL(blob);
+    const a    = document.createElement("a");
+    a.href     = url;
+    a.download = `attendance_${document.getElementById("date-from").value}_to_${document.getElementById("date-to").value}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+  });
+
+  function fmtTime(dt) {
+    const [, timePart] = dt.split(" ");
+    const [h, m]       = timePart.split(":").map(Number);
+    const ampm         = h >= 12 ? "PM" : "AM";
+    const h12          = h % 12 || 12;
+    return `${h12}:${String(m).padStart(2,"0")} ${ampm}`;
+  }
+
+  function esc(s) {
+    const d = document.createElement("div");
+    d.textContent = s || "";
+    return d.innerHTML;
+  }
+</script>
+</body>
+</html>

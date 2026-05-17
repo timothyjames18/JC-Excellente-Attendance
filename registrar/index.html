@@ -1,0 +1,366 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Students — JCExcellente Registrar</title>
+  <link rel="stylesheet" href="../assets/css/style.css" />
+</head>
+<body>
+
+<!-- Header -->
+<header class="site-header">
+  <div class="header-inner">
+    <a class="header-brand" href="../index.html">
+      <img src="../assets/images/logo.png" alt="Logo" />
+      <div>
+        <div class="school-name">JCExcellente Christian Academy</div>
+        <div class="sys-name">Registrar Panel</div>
+      </div>
+    </a>
+    <div class="nav-user">
+      <span id="user-name"></span>
+      <button class="btn-logout" id="logout-btn">Sign Out</button>
+    </div>
+  </div>
+</header>
+
+<div class="container page-wrap">
+  <div class="page-title">Student Records</div>
+  <div class="page-sub">Manage student information and QR codes.</div>
+
+  <!-- Toolbar -->
+  <div class="toolbar mb-4">
+    <input type="search" id="search-box" class="form-control search-input" placeholder="Search by name or student ID…" />
+    <a href="qr-print.html" class="btn btn-outline btn-sm">🖨 Print QR Codes</a>
+    <button class="btn btn-primary btn-sm" id="add-btn">+ Add Student</button>
+  </div>
+
+  <!-- Table -->
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr>
+          <th>Student ID</th>
+          <th>Full Name</th>
+          <th>Section</th>
+          <th>Parent Email</th>
+          <th>Parent Phone</th>
+          <th>Status</th>
+          <th>Actions</th>
+        </tr>
+      </thead>
+      <tbody id="student-body">
+        <tr><td colspan="7" class="text-center" style="padding:32px;color:var(--muted);">
+          <div class="spinner"></div>Loading students…
+        </td></tr>
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<!-- Add / Edit Modal -->
+<div class="modal-backdrop hidden" id="modal-backdrop">
+  <div class="modal" role="dialog" aria-modal="true" aria-labelledby="modal-title-text">
+    <div class="modal-header">
+      <div class="modal-title" id="modal-title-text">Add Student</div>
+      <button class="modal-close" id="modal-close" aria-label="Close">✕</button>
+    </div>
+    <div class="modal-body">
+      <div id="modal-error" class="alert alert-error hidden"></div>
+      <div id="modal-success" class="alert alert-success hidden"></div>
+
+      <input type="hidden" id="edit-id" />
+
+      <div class="flex gap-4">
+        <div class="form-group w-full">
+          <label class="form-label" for="f-first">First Name *</label>
+          <input type="text" id="f-first" class="form-control" required />
+        </div>
+        <div class="form-group w-full">
+          <label class="form-label" for="f-last">Last Name *</label>
+          <input type="text" id="f-last" class="form-control" required />
+        </div>
+      </div>
+      <div class="form-group">
+        <label class="form-label" for="f-sid">Student ID *</label>
+        <input type="text" id="f-sid" class="form-control" required placeholder="e.g. 2024-0001" />
+      </div>
+      <div class="form-group">
+        <label class="form-label" for="f-section">Section *</label>
+        <select id="f-section" class="form-control" required>
+          <option value="">— Select section —</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label class="form-label" for="f-email">Parent Email</label>
+        <input type="email" id="f-email" class="form-control" placeholder="parent@email.com" />
+      </div>
+      <div class="form-group">
+        <label class="form-label" for="f-phone">Parent Phone</label>
+        <input type="tel" id="f-phone" class="form-control" placeholder="09171234567" />
+      </div>
+      <div class="form-group" id="qr-group" style="display:none;">
+        <label class="form-label">QR Code</label>
+        <code id="f-qr" style="font-size:.8rem;word-break:break-all;color:var(--muted);"></code>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-outline" id="cancel-btn">Cancel</button>
+      <button class="btn btn-primary" id="save-btn">Save Student</button>
+    </div>
+  </div>
+</div>
+
+<!-- Deactivate Confirm Modal -->
+<div class="modal-backdrop hidden" id="deactivate-backdrop">
+  <div class="modal" style="max-width:380px;">
+    <div class="modal-header">
+      <div class="modal-title">Deactivate Student?</div>
+    </div>
+    <div class="modal-body">
+      <p style="font-size:.9rem;">Are you sure you want to deactivate <strong id="deactivate-name"></strong>?
+      Their QR code will no longer be accepted at the scanner.</p>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-outline" id="deactivate-cancel">Cancel</button>
+      <button class="btn btn-danger" id="deactivate-confirm">Deactivate</button>
+    </div>
+  </div>
+</div>
+
+<script type="module">
+  import { requireRole, logout } from "../assets/js/auth.js";
+  import {
+    getAllStudents, addStudent, updateStudent, deactivateStudent, getSections
+  } from "../assets/js/firestore.js";
+
+  let allStudents = [];
+  let sections    = [];
+  let deactivateTarget = null;
+
+  document.getElementById("logout-btn").addEventListener("click", logout);
+
+  requireRole("registrar", "principal")
+    .then(async (user) => {
+      document.getElementById("user-name").textContent = user.name || user.email;
+      await loadData();
+    })
+    .catch(() => {});
+
+  async function loadData() {
+    [allStudents, sections] = await Promise.all([getAllStudents(), getSections()]);
+    populateSectionDropdown();
+    renderTable(allStudents);
+  }
+
+  function populateSectionDropdown() {
+    const sel = document.getElementById("f-section");
+    // keep default option
+    sel.innerHTML = '<option value="">— Select section —</option>';
+    sections.forEach(s => {
+      const o = document.createElement("option");
+      o.value = s.id;
+      o.textContent = s.name;
+      sel.appendChild(o);
+    });
+  }
+
+  // ── Search ──────────────────────────────────────────────────
+  document.getElementById("search-box").addEventListener("input", (e) => {
+    const q = e.target.value.toLowerCase();
+    const filtered = allStudents.filter(s =>
+      `${s.first_name} ${s.last_name}`.toLowerCase().includes(q) ||
+      (s.student_id || "").toLowerCase().includes(q)
+    );
+    renderTable(filtered);
+  });
+
+  // ── Render table ────────────────────────────────────────────
+  function renderTable(students) {
+    const tbody = document.getElementById("student-body");
+    if (students.length === 0) {
+      tbody.innerHTML = `<tr><td colspan="7" class="text-center" style="padding:32px;color:var(--muted);">
+        No students found.</td></tr>`;
+      return;
+    }
+    tbody.innerHTML = students.map(s => {
+      const sec    = sections.find(x => x.id === s.section_id);
+      const secName = sec ? esc(sec.name) : '<span style="color:var(--muted)">—</span>';
+      const status  = s.is_active
+        ? '<span class="badge badge-green">Active</span>'
+        : '<span class="badge badge-red">Inactive</span>';
+      const deactBtn = s.is_active
+        ? `<button class="btn btn-danger btn-sm deact-btn" data-id="${s.id}" data-name="${esc(s.first_name+' '+s.last_name)}">Deactivate</button>`
+        : '';
+      return `<tr>
+        <td style="font-size:.82rem;color:var(--muted);">${esc(s.student_id)}</td>
+        <td style="font-weight:600;">${esc(s.first_name)} ${esc(s.last_name)}</td>
+        <td>${secName}</td>
+        <td style="font-size:.82rem;">${esc(s.parent_email || '—')}</td>
+        <td style="font-size:.82rem;">${esc(s.parent_phone || '—')}</td>
+        <td>${status}</td>
+        <td style="white-space:nowrap;display:flex;gap:6px;flex-wrap:wrap;">
+          <button class="btn btn-outline btn-sm edit-btn" data-id="${s.id}">Edit</button>
+          ${deactBtn}
+        </td>
+      </tr>`;
+    }).join("");
+
+    // Edit buttons
+    document.querySelectorAll(".edit-btn").forEach(btn => {
+      btn.addEventListener("click", () => {
+        const s = allStudents.find(x => x.id === btn.dataset.id);
+        if (s) openEditModal(s);
+      });
+    });
+
+    // Deactivate buttons
+    document.querySelectorAll(".deact-btn").forEach(btn => {
+      btn.addEventListener("click", () => {
+        deactivateTarget = btn.dataset.id;
+        document.getElementById("deactivate-name").textContent = btn.dataset.name;
+        document.getElementById("deactivate-backdrop").classList.remove("hidden");
+      });
+    });
+  }
+
+  // ── Add modal ───────────────────────────────────────────────
+  document.getElementById("add-btn").addEventListener("click", () => openAddModal());
+
+  function openAddModal() {
+    document.getElementById("modal-title-text").textContent = "Add Student";
+    clearForm();
+    document.getElementById("qr-group").style.display = "none";
+    document.getElementById("modal-backdrop").classList.remove("hidden");
+  }
+
+  function openEditModal(s) {
+    document.getElementById("modal-title-text").textContent = "Edit Student";
+    document.getElementById("edit-id").value    = s.id;
+    document.getElementById("f-first").value    = s.first_name || "";
+    document.getElementById("f-last").value     = s.last_name  || "";
+    document.getElementById("f-sid").value      = s.student_id || "";
+    document.getElementById("f-section").value  = s.section_id || "";
+    document.getElementById("f-email").value    = s.parent_email || "";
+    document.getElementById("f-phone").value    = s.parent_phone || "";
+    document.getElementById("f-qr").textContent = s.qr_code || "";
+    document.getElementById("qr-group").style.display = "block";
+    clearAlerts();
+    document.getElementById("modal-backdrop").classList.remove("hidden");
+  }
+
+  function closeModal() {
+    document.getElementById("modal-backdrop").classList.add("hidden");
+    clearForm();
+  }
+
+  document.getElementById("modal-close").addEventListener("click",  closeModal);
+  document.getElementById("cancel-btn").addEventListener("click",   closeModal);
+  document.getElementById("modal-backdrop").addEventListener("click", (e) => {
+    if (e.target === document.getElementById("modal-backdrop")) closeModal();
+  });
+
+  // ── Save ────────────────────────────────────────────────────
+  document.getElementById("save-btn").addEventListener("click", async () => {
+    clearAlerts();
+    const id        = document.getElementById("edit-id").value;
+    const firstName = document.getElementById("f-first").value.trim();
+    const lastName  = document.getElementById("f-last").value.trim();
+    const studentId = document.getElementById("f-sid").value.trim();
+    const sectionId = document.getElementById("f-section").value;
+    const email     = document.getElementById("f-email").value.trim();
+    const phone     = document.getElementById("f-phone").value.trim();
+
+    if (!firstName || !lastName || !studentId || !sectionId) {
+      showModalError("Please fill in all required fields (*).");
+      return;
+    }
+
+    const secObj = sections.find(s => s.id === sectionId);
+    const data = {
+      first_name:   firstName,
+      last_name:    lastName,
+      student_id:   studentId,
+      section_id:   sectionId,
+      section_name: secObj ? secObj.name : "",
+      parent_email: email,
+      parent_phone: phone,
+    };
+
+    const saveBtn = document.getElementById("save-btn");
+    saveBtn.disabled = true;
+    saveBtn.textContent = "Saving…";
+
+    let ok = false;
+    if (id) {
+      // Edit
+      ok = await updateStudent(id, data);
+    } else {
+      // Add — generate unique QR code
+      data.qr_code = "JCA-" + studentId.replace(/\s/g,"") + "-" + Date.now();
+      const newId = await addStudent(data);
+      ok = !!newId;
+    }
+
+    saveBtn.disabled = false;
+    saveBtn.textContent = "Save Student";
+
+    if (ok) {
+      showModalSuccess(id ? "Student updated successfully." : "Student added successfully.");
+      await loadData();
+      setTimeout(closeModal, 1200);
+    } else {
+      showModalError("Failed to save. Please try again.");
+    }
+  });
+
+  // ── Deactivate ──────────────────────────────────────────────
+  document.getElementById("deactivate-cancel").addEventListener("click", () => {
+    document.getElementById("deactivate-backdrop").classList.add("hidden");
+    deactivateTarget = null;
+  });
+  document.getElementById("deactivate-confirm").addEventListener("click", async () => {
+    if (!deactivateTarget) return;
+    const btn = document.getElementById("deactivate-confirm");
+    btn.disabled = true;
+    btn.textContent = "Deactivating…";
+    await deactivateStudent(deactivateTarget);
+    deactivateTarget = null;
+    document.getElementById("deactivate-backdrop").classList.add("hidden");
+    btn.disabled = false;
+    btn.textContent = "Deactivate";
+    await loadData();
+  });
+
+  // ── Helpers ─────────────────────────────────────────────────
+  function clearForm() {
+    ["edit-id","f-first","f-last","f-sid","f-email","f-phone"].forEach(id => {
+      document.getElementById(id).value = "";
+    });
+    document.getElementById("f-section").value = "";
+    document.getElementById("f-qr").textContent = "";
+    clearAlerts();
+  }
+  function clearAlerts() {
+    document.getElementById("modal-error").classList.add("hidden");
+    document.getElementById("modal-success").classList.add("hidden");
+  }
+  function showModalError(msg) {
+    const el = document.getElementById("modal-error");
+    el.textContent = msg;
+    el.classList.remove("hidden");
+  }
+  function showModalSuccess(msg) {
+    const el = document.getElementById("modal-success");
+    el.textContent = msg;
+    el.classList.remove("hidden");
+  }
+  function esc(s) {
+    const d = document.createElement("div");
+    d.textContent = s || "";
+    return d.innerHTML;
+  }
+</script>
+</body>
+</html>
