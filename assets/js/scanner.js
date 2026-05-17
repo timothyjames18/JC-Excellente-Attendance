@@ -1,6 +1,6 @@
 // assets/js/scanner.js
 import { requireRole }           from "./auth.js";
-import { getStudent, logAttendance, getStudentLogsToday, manilaDateTime }
+import { getStudent, getStudentByRFID, logAttendance, getStudentLogsToday, manilaDateTime }
                                   from "./firestore.js";
 
 // jsQR is loaded via CDN as a global (window.jsQR)
@@ -12,8 +12,13 @@ let   lastScan    = 0;
 let   stream      = null;
 let   animFrame   = null;
 
+// RFID keyboard-wedge state
+let   rfidBuffer  = "";
+let   rfidTimer   = null;
+const RFID_TIMEOUT_MS = 100; // ms of silence = end of RFID burst
+
 // DOM refs — set after DOMContentLoaded
-let videoEl, canvasEl, ctx, statusEl, resultEl, errorBannerEl;
+let videoEl, canvasEl, ctx, statusEl, resultEl, errorBannerEl, rfidInputEl, rfidModeEl;
 
 // ─────────────────────────────────────────────────────────────
 // init() — entry point, called from scanner/index.html
@@ -25,6 +30,8 @@ async function init() {
   statusEl     = document.getElementById("scan-status");
   resultEl     = document.getElementById("scan-result");
   errorBannerEl = document.getElementById("error-banner");
+  rfidInputEl  = document.getElementById("rfid-input");
+  rfidModeEl   = document.getElementById("rfid-mode-indicator");
 
   // Auth guard — scanner role OR principal
   try {
@@ -33,12 +40,166 @@ async function init() {
     return; // requireRole will have already redirected
   }
 
+  // Wire up RFID keyboard-wedge listener
+  setupRFIDListener();
+
+  // Wire up tab buttons
+  document.getElementById("tab-qr-btn").addEventListener("click", () => switchTab("qr"));
+  document.getElementById("tab-rfid-btn").addEventListener("click", () => switchTab("rfid"));
+
   await startCamera();
 }
 
 // ─────────────────────────────────────────────────────────────
-// Camera setup
+// RFID keyboard-wedge listener
+// Most USB RFID readers act as HID keyboards: they rapidly type
+// the card UID then send Enter. We buffer keystrokes and flush
+// on Enter or after a short silence.
 // ─────────────────────────────────────────────────────────────
+function setupRFIDListener() {
+  document.addEventListener("keydown", (e) => {
+    // Only capture when RFID tab is active
+    const rfidPanel = document.getElementById("rfid-panel");
+    if (!rfidPanel || rfidPanel.classList.contains("hidden")) return;
+
+    // Ignore modifier-only keys
+    if (e.key.length > 1 && e.key !== "Enter") return;
+
+    if (e.key === "Enter") {
+      // Flush buffer
+      const uid = rfidBuffer.trim();
+      rfidBuffer = "";
+      clearTimeout(rfidTimer);
+      if (uid) handleRFIDScan(uid);
+      return;
+    }
+
+    rfidBuffer += e.key;
+
+    // Auto-flush after silence (some readers don't send Enter)
+    clearTimeout(rfidTimer);
+    rfidTimer = setTimeout(() => {
+      const uid = rfidBuffer.trim();
+      rfidBuffer = "";
+      if (uid) handleRFIDScan(uid);
+    }, RFID_TIMEOUT_MS);
+  });
+
+  // Also support manual text input for testing
+  rfidInputEl.addEventListener("keydown", (e) => {
+    if (e.key === "Enter") {
+      e.preventDefault();
+      const uid = rfidInputEl.value.trim();
+      rfidInputEl.value = "";
+      if (uid) handleRFIDScan(uid);
+    }
+  });
+}
+
+// ─────────────────────────────────────────────────────────────
+// Tab switcher (QR / RFID)
+// ─────────────────────────────────────────────────────────────
+function switchTab(tab) {
+  const qrPanel   = document.getElementById("qr-panel");
+  const rfidPanel = document.getElementById("rfid-panel");
+  const qrBtn     = document.getElementById("tab-qr-btn");
+  const rfidBtn   = document.getElementById("tab-rfid-btn");
+
+  if (tab === "qr") {
+    qrPanel.classList.remove("hidden");
+    rfidPanel.classList.add("hidden");
+    qrBtn.classList.add("tab-active");
+    rfidBtn.classList.remove("tab-active");
+    statusEl.textContent = "Point camera at a QR code…";
+    scanning = true;
+    animFrame = requestAnimationFrame(tick);
+  } else {
+    qrPanel.classList.add("hidden");
+    rfidPanel.classList.remove("hidden");
+    rfidBtn.classList.add("tab-active");
+    qrBtn.classList.remove("tab-active");
+    // Pause QR scanning
+    scanning = false;
+    cancelAnimationFrame(animFrame);
+    statusEl.textContent = "Ready — tap or swipe an RFID card…";
+    rfidInputEl.focus();
+  }
+}
+
+// ─────────────────────────────────────────────────────────────
+// RFID scan handler
+// ─────────────────────────────────────────────────────────────
+async function handleRFIDScan(rfidCode) {
+  const now = Date.now();
+  if (now - lastScan < COOLDOWN_MS) return;
+  lastScan = now;
+
+  statusEl.textContent = "Processing…";
+  hideError();
+  hideResult();
+
+  if (rfidModeEl) {
+    rfidModeEl.textContent = `Card: ${rfidCode}`;
+    rfidModeEl.classList.remove("hidden");
+    setTimeout(() => rfidModeEl.classList.add("hidden"), 3000);
+  }
+
+  try {
+    const student = await getStudentByRFID(rfidCode);
+
+    if (!student) {
+      showError("RFID card not recognized. Please register this card in the Registrar.");
+      setTimeout(() => {
+        hideError();
+        statusEl.textContent = "Ready — tap or swipe an RFID card…";
+      }, COOLDOWN_MS);
+      return;
+    }
+    if (!student.is_active) {
+      showError(`${student.first_name} ${student.last_name} — account is inactive.`);
+      setTimeout(() => {
+        hideError();
+        statusEl.textContent = "Ready — tap or swipe an RFID card…";
+      }, COOLDOWN_MS);
+      return;
+    }
+
+    const todayLogs = await getStudentLogsToday(student.id);
+    let   type      = "time_in";
+    if (todayLogs.length > 0) {
+      type = todayLogs[0].type === "time_in" ? "time_out" : "time_in";
+    }
+
+    const logId = await logAttendance(student, type);
+    if (!logId) {
+      showError("Failed to record attendance. Please try again.");
+      setTimeout(() => {
+        hideError();
+        statusEl.textContent = "Ready — tap or swipe an RFID card…";
+      }, COOLDOWN_MS);
+      return;
+    }
+
+    showResult(student, type);
+    statusEl.textContent = "Scan recorded! Next scan in 3 seconds…";
+
+    setTimeout(() => {
+      hideResult();
+      statusEl.textContent = "Ready — tap or swipe an RFID card…";
+      rfidInputEl.focus();
+    }, COOLDOWN_MS);
+
+  } catch (err) {
+    console.error("handleRFIDScan error:", err);
+    showError("An error occurred. Please try again.");
+    setTimeout(() => {
+      hideError();
+      statusEl.textContent = "Ready — tap or swipe an RFID card…";
+    }, COOLDOWN_MS);
+  }
+}
+
+
 async function startCamera() {
   const constraints = {
     video: {

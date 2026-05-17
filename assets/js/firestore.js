@@ -36,6 +36,20 @@ async function getStudent(qrCode) {
   }
 }
 
+/** Query one student by RFID code. Returns the student object (with .id) or null. */
+async function getStudentByRFID(rfidCode) {
+  try {
+    const q    = query(collection(db, "students"), where("rfid_code", "==", rfidCode));
+    const snap = await getDocs(q);
+    if (snap.empty) return null;
+    const d = snap.docs[0];
+    return { id: d.id, ...d.data() };
+  } catch (err) {
+    console.error("getStudentByRFID error:", err);
+    return null;
+  }
+}
+
 /** Fetch all active students. Returns array sorted by last name. */
 async function getStudents() {
   try {
@@ -231,7 +245,7 @@ function watchAttendanceByDate(date, callback) {
 
 export {
   // students
-  getStudent, getStudents, getAllStudents,
+  getStudent, getStudentByRFID, getStudents, getAllStudents,
   addStudent, updateStudent, deactivateStudent,
   // sections
   getSections,
