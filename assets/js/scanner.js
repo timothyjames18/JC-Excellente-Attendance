@@ -1,7 +1,7 @@
 // assets/js/scanner.js
-import { requireRole }           from "../assets/js/auth.js";
+import { requireRole }           from "./auth.js";
 import { getStudent, logAttendance, getStudentLogsToday, manilaDateTime }
-                                  from "../assets/js/firestore.js";
+                                  from "./firestore.js";
 
 // jsQR is loaded via CDN as a global (window.jsQR)
 // Make sure the scanner page loads jsQR before this module.
