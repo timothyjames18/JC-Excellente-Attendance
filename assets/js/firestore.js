@@ -169,11 +169,13 @@ async function getStudentLogsToday(studentId) {
     const q = query(
       collection(db, "attendance_logs"),
       where("student_id", "==", studentId),
-      where("date", "==", today),
-      orderBy("scan_time", "desc")
+      where("date", "==", today)
     );
     const snap = await getDocs(q);
-    return snap.docs.map(d => ({ id: d.id, ...d.data() }));
+    const logs = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+    // Sort desc by scan_time client-side (avoids needing a composite index)
+    logs.sort((a, b) => b.scan_time.localeCompare(a.scan_time));
+    return logs;
   } catch (err) {
     console.error("getStudentLogsToday error:", err);
     return [];
@@ -188,11 +190,12 @@ async function getAttendanceByDate(date) {
   try {
     const q = query(
       collection(db, "attendance_logs"),
-      where("date", "==", date),
-      orderBy("scan_time", "asc")
+      where("date", "==", date)
     );
     const snap = await getDocs(q);
-    return snap.docs.map(d => ({ id: d.id, ...d.data() }));
+    const logs = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+    logs.sort((a, b) => a.scan_time.localeCompare(b.scan_time));
+    return logs;
   } catch (err) {
     console.error("getAttendanceByDate error:", err);
     return [];
@@ -205,18 +208,18 @@ async function getAttendanceByDate(date) {
  */
 async function getAttendanceByRange(dateFrom, dateTo, sectionFilter) {
   try {
-    let q = query(
+    const q = query(
       collection(db, "attendance_logs"),
       where("date", ">=", dateFrom),
-      where("date", "<=", dateTo),
-      orderBy("date", "asc"),
-      orderBy("scan_time", "asc")
+      where("date", "<=", dateTo)
     );
     const snap = await getDocs(q);
     let logs = snap.docs.map(d => ({ id: d.id, ...d.data() }));
     if (sectionFilter) {
       logs = logs.filter(l => l.section === sectionFilter);
     }
+    // Sort by date asc, then scan_time asc client-side
+    logs.sort((a, b) => a.date.localeCompare(b.date) || a.scan_time.localeCompare(b.scan_time));
     return logs;
   } catch (err) {
     console.error("getAttendanceByRange error:", err);
@@ -232,11 +235,11 @@ async function getAttendanceByRange(dateFrom, dateTo, sectionFilter) {
 function watchAttendanceByDate(date, callback) {
   const q = query(
     collection(db, "attendance_logs"),
-    where("date", "==", date),
-    orderBy("scan_time", "asc")
+    where("date", "==", date)
   );
   return onSnapshot(q, (snap) => {
     const logs = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+    logs.sort((a, b) => a.scan_time.localeCompare(b.scan_time));
     callback(logs);
   }, (err) => {
     console.error("watchAttendanceByDate error:", err);
