@@ -121,6 +121,11 @@
         <label class="form-label" for="f-phone">Parent Phone</label>
         <input type="tel" id="f-phone" class="form-control" placeholder="09171234567" />
       </div>
+      <div class="form-group">
+        <label class="form-label" for="f-rfid">RFID Card UID</label>
+        <input type="text" id="f-rfid" class="form-control" placeholder="e.g. A3F2B1C0 (leave blank if not assigned)" autocomplete="off" />
+        <small style="color:var(--muted);font-size:.75rem;">Tap card on reader while this field is focused, or type manually.</small>
+      </div>
       <div class="form-group" id="qr-group" style="display:none;">
         <label class="form-label">QR Code</label>
         <div id="modal-qr-img"></div>
@@ -284,6 +289,7 @@
     document.getElementById("f-section").value  = s.section_id || "";
     document.getElementById("f-email").value    = s.parent_email || "";
     document.getElementById("f-phone").value    = s.parent_phone || "";
+    document.getElementById("f-rfid").value     = s.rfid_code || "";
     document.getElementById("f-qr").textContent = s.qr_code || "";
 
     // Render QR image in modal
@@ -326,6 +332,7 @@
     const sectionId = document.getElementById("f-section").value;
     const email     = document.getElementById("f-email").value.trim();
     const phone     = document.getElementById("f-phone").value.trim();
+    const rfid      = document.getElementById("f-rfid").value.trim();
 
     if (!firstName || !lastName || !studentId || !sectionId) {
       showModalError("Please fill in all required fields (*).");
@@ -341,6 +348,7 @@
       section_name: secObj ? secObj.name : "",
       parent_email: email,
       parent_phone: phone,
+      rfid_code:    rfid || null,
     };
 
     const saveBtn = document.getElementById("save-btn");
@@ -390,7 +398,7 @@
 
   // ── Helpers ─────────────────────────────────────────────────
   function clearForm() {
-    ["edit-id","f-first","f-last","f-sid","f-email","f-phone"].forEach(id => {
+    ["edit-id","f-first","f-last","f-sid","f-email","f-phone","f-rfid"].forEach(id => {
       document.getElementById(id).value = "";
     });
     document.getElementById("f-section").value = "";
