@@ -5,6 +5,26 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Students — JCExcellente Registrar</title>
   <link rel="stylesheet" href="../assets/css/style.css" />
+  <script src="https://cdn.jsdelivr.net/npm/qrcodejs@1.0.0/qrcode.min.js"></script>
+  <style>
+    /* QR thumbnail in table */
+    .qr-thumb canvas, .qr-thumb img { width:52px!important; height:52px!important; border:1px solid #ddd; border-radius:4px; }
+
+    /* QR in modal */
+    #modal-qr-img { display:flex; justify-content:center; margin:8px 0; }
+    #modal-qr-img canvas, #modal-qr-img img { width:150px!important; height:150px!important; }
+
+    /* Print styles */
+    @media print {
+      .site-header, .toolbar, .page-title, .page-sub,
+      .modal-backdrop, thead th:last-child, tbody td:last-child { display:none!important; }
+      body { background:#fff; }
+      .table-wrap { overflow:visible; box-shadow:none; }
+      table { width:100%; border-collapse:collapse; }
+      td, th { border:1px solid #ccc; padding:6px 10px; font-size:.8rem; vertical-align:middle; }
+      .qr-thumb canvas, .qr-thumb img { width:70px!important; height:70px!important; }
+    }
+  </style>
 </head>
 <body>
 
@@ -32,7 +52,7 @@
   <!-- Toolbar -->
   <div class="toolbar mb-4">
     <input type="search" id="search-box" class="form-control search-input" placeholder="Search by name or student ID…" />
-    <a href="qr-print.html" class="btn btn-outline btn-sm">🖨 Print QR Codes</a>
+    <button class="btn btn-outline btn-sm" onclick="window.print()">🖨 Print QR Codes</button>
     <button class="btn btn-primary btn-sm" id="add-btn">+ Add Student</button>
   </div>
 
@@ -41,6 +61,7 @@
     <table>
       <thead>
         <tr>
+          <th>QR Code</th>
           <th>Student ID</th>
           <th>Full Name</th>
           <th>Section</th>
@@ -102,7 +123,8 @@
       </div>
       <div class="form-group" id="qr-group" style="display:none;">
         <label class="form-label">QR Code</label>
-        <code id="f-qr" style="font-size:.8rem;word-break:break-all;color:var(--muted);"></code>
+        <div id="modal-qr-img"></div>
+        <code id="f-qr" style="font-size:.75rem;word-break:break-all;color:var(--muted);display:block;margin-top:6px;text-align:center;"></code>
       </div>
     </div>
     <div class="modal-footer">
@@ -180,7 +202,7 @@
   function renderTable(students) {
     const tbody = document.getElementById("student-body");
     if (students.length === 0) {
-      tbody.innerHTML = `<tr><td colspan="7" class="text-center" style="padding:32px;color:var(--muted);">
+      tbody.innerHTML = `<tr><td colspan="8" class="text-center" style="padding:32px;color:var(--muted);">
         No students found.</td></tr>`;
       return;
     }
@@ -194,6 +216,7 @@
         ? `<button class="btn btn-danger btn-sm deact-btn" data-id="${s.id}" data-name="${esc(s.first_name+' '+s.last_name)}">Deactivate</button>`
         : '';
       return `<tr>
+        <td><div class="qr-thumb" id="qr-cell-${s.id}"></div></td>
         <td style="font-size:.82rem;color:var(--muted);">${esc(s.student_id)}</td>
         <td style="font-weight:600;">${esc(s.first_name)} ${esc(s.last_name)}</td>
         <td>${secName}</td>
@@ -206,6 +229,23 @@
         </td>
       </tr>`;
     }).join("");
+
+    // Generate QR thumbnails after DOM is updated
+    students.forEach(s => {
+      const cell = document.getElementById(`qr-cell-${s.id}`);
+      if (cell && s.qr_code) {
+        try {
+          new QRCode(cell, {
+            text: s.qr_code,
+            width: 52, height: 52,
+            colorDark: "#000000", colorLight: "#ffffff",
+            correctLevel: QRCode.CorrectLevel.H,
+          });
+        } catch(e) { cell.textContent = "—"; }
+      } else if (cell) {
+        cell.textContent = "—";
+      }
+    });
 
     // Edit buttons
     document.querySelectorAll(".edit-btn").forEach(btn => {
@@ -245,6 +285,21 @@
     document.getElementById("f-email").value    = s.parent_email || "";
     document.getElementById("f-phone").value    = s.parent_phone || "";
     document.getElementById("f-qr").textContent = s.qr_code || "";
+
+    // Render QR image in modal
+    const qrImgEl = document.getElementById("modal-qr-img");
+    qrImgEl.innerHTML = "";
+    if (s.qr_code) {
+      try {
+        new QRCode(qrImgEl, {
+          text: s.qr_code,
+          width: 150, height: 150,
+          colorDark: "#000000", colorLight: "#ffffff",
+          correctLevel: QRCode.CorrectLevel.H,
+        });
+      } catch(e) { qrImgEl.textContent = "QR error"; }
+    }
+
     document.getElementById("qr-group").style.display = "block";
     clearAlerts();
     document.getElementById("modal-backdrop").classList.remove("hidden");
@@ -340,6 +395,7 @@
     });
     document.getElementById("f-section").value = "";
     document.getElementById("f-qr").textContent = "";
+    document.getElementById("modal-qr-img").innerHTML = "";
     clearAlerts();
   }
   function clearAlerts() {

@@ -36,12 +36,15 @@ async function getStudent(qrCode) {
   }
 }
 
-/** Fetch all active students. Returns array. */
+/** Fetch all active students. Returns array sorted by last name. */
 async function getStudents() {
   try {
-    const q    = query(collection(db, "students"), where("is_active", "==", true), orderBy("last_name"));
+    // Filter client-side to avoid requiring a composite Firestore index
+    const q    = query(collection(db, "students"), where("is_active", "==", true));
     const snap = await getDocs(q);
-    return snap.docs.map(d => ({ id: d.id, ...d.data() }));
+    const docs = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+    docs.sort((a, b) => (a.last_name || "").localeCompare(b.last_name || ""));
+    return docs;
   } catch (err) {
     console.error("getStudents error:", err);
     return [];
