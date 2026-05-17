@@ -67,12 +67,13 @@
           <th>Section</th>
           <th>Parent Email</th>
           <th>Parent Phone</th>
+          <th>RFID UID</th>
           <th>Status</th>
           <th>Actions</th>
         </tr>
       </thead>
       <tbody id="student-body">
-        <tr><td colspan="7" class="text-center" style="padding:32px;color:var(--muted);">
+        <tr><td colspan="9" class="text-center" style="padding:32px;color:var(--muted);">
           <div class="spinner"></div>Loading students…
         </td></tr>
       </tbody>
@@ -207,7 +208,7 @@
   function renderTable(students) {
     const tbody = document.getElementById("student-body");
     if (students.length === 0) {
-      tbody.innerHTML = `<tr><td colspan="8" class="text-center" style="padding:32px;color:var(--muted);">
+      tbody.innerHTML = `<tr><td colspan="9" class="text-center" style="padding:32px;color:var(--muted);">
         No students found.</td></tr>`;
       return;
     }
@@ -227,6 +228,7 @@
         <td>${secName}</td>
         <td style="font-size:.82rem;">${esc(s.parent_email || '—')}</td>
         <td style="font-size:.82rem;">${esc(s.parent_phone || '—')}</td>
+        <td style="font-size:.78rem;color:var(--muted);font-family:monospace;">${esc(s.rfid_code || '—')}</td>
         <td>${status}</td>
         <td style="white-space:nowrap;display:flex;gap:6px;flex-wrap:wrap;">
           <button class="btn btn-outline btn-sm edit-btn" data-id="${s.id}">Edit</button>
