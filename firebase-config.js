@@ -11,12 +11,12 @@ import { getFirestore }  from "https://www.gstatic.com/firebasejs/9.23.0/firebas
 import { getAuth }       from "https://www.gstatic.com/firebasejs/9.23.0/firebase-auth.js";
 
 const firebaseConfig = {
-  apiKey:            "AIzaSyXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX",  // ← REPLACE WITH YOUR VALUE
-  authDomain:        "your-project-id.firebaseapp.com",            // ← REPLACE WITH YOUR VALUE
-  projectId:         "your-project-id",                            // ← REPLACE WITH YOUR VALUE
-  storageBucket:     "your-project-id.appspot.com",                // ← REPLACE WITH YOUR VALUE
-  messagingSenderId: "000000000000",                               // ← REPLACE WITH YOUR VALUE
-  appId:             "1:000000000000:web:xxxxxxxxxxxxxxxxxxxxxxxx"  // ← REPLACE WITH YOUR VALUE
+  apiKey: "AIzaSyDl-lBviHwY-Qum-J64cvAbjSSsrrTD-Q4",
+  authDomain: "jca-attendance.firebaseapp.com",
+  projectId: "jca-attendance",
+  storageBucket: "jca-attendance.firebasestorage.app",
+  messagingSenderId: "816484850356",
+  appId: "1:816484850356:web:a673802ff86150448f95e1"
 };
 
 const app  = initializeApp(firebaseConfig);
