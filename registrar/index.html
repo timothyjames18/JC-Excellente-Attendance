@@ -3,29 +3,21 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Registrar Panel — JCExcellente</title>
+  <title>Students — JCExcellente Registrar</title>
   <link rel="stylesheet" href="../assets/css/style.css" />
   <script src="https://cdn.jsdelivr.net/npm/qrcodejs@1.0.0/qrcode.min.js"></script>
   <style>
+    /* QR thumbnail in table */
     .qr-thumb canvas, .qr-thumb img { width:52px!important; height:52px!important; border:1px solid #ddd; border-radius:4px; }
+
+    /* QR in modal */
     #modal-qr-img { display:flex; justify-content:center; margin:8px 0; }
     #modal-qr-img canvas, #modal-qr-img img { width:150px!important; height:150px!important; }
-    .tab-bar { display:flex; gap:4px; border-bottom:2px solid var(--border); margin-bottom:1.5rem; }
-    .tab-btn { padding:8px 18px; border:none; background:none; cursor:pointer; font-size:.9rem;
-      color:var(--muted); border-bottom:2px solid transparent; margin-bottom:-2px; transition:.15s; }
-    .tab-btn.active { color:var(--primary); border-bottom-color:var(--primary); font-weight:600; }
-    .tab-btn:hover:not(.active) { color:var(--text); }
-    .tab-panel { display:none; }
-    .tab-panel.active { display:block; }
-    .section-checkbox-list { display:grid; grid-template-columns:repeat(auto-fill,minmax(180px,1fr)); gap:8px; max-height:260px; overflow-y:auto; padding:4px; }
-    .section-checkbox-list label { display:flex; align-items:center; gap:8px; font-size:.87rem; cursor:pointer; padding:5px 8px; border-radius:6px; border:1px solid var(--border); }
-    .section-checkbox-list label:hover { background:var(--surface); }
-    .section-checkbox-list input[type=checkbox] { accent-color:var(--primary); width:16px; height:16px; }
-    .teacher-pill { font-size:.75rem; background:var(--surface); border:1px solid var(--border); padding:2px 8px; border-radius:12px; }
+
+    /* Print styles */
     @media print {
       .site-header, .toolbar, .page-title, .page-sub,
-      .modal-backdrop, thead th:last-child, tbody td:last-child,
-      .tab-bar, .filter-bar { display:none!important; }
+      .modal-backdrop, thead th:last-child, tbody td:last-child { display:none!important; }
       body { background:#fff; }
       .table-wrap { overflow:visible; box-shadow:none; }
       table { width:100%; border-collapse:collapse; }
@@ -36,6 +28,7 @@
 </head>
 <body>
 
+<!-- Header -->
 <header class="site-header">
   <div class="header-inner">
     <a class="header-brand" href="../index.html">
@@ -53,92 +46,54 @@
 </header>
 
 <div class="container page-wrap">
-  <div class="page-title">Registrar Panel</div>
-  <div class="page-sub">Manage students, sections, and teacher assignments.</div>
+  <div class="page-title">Student Records</div>
+  <div class="page-sub">Manage student information and QR codes.</div>
 
-  <div class="tab-bar">
-    <button class="tab-btn active" data-tab="students">Students</button>
-    <button class="tab-btn" data-tab="sections">Manage Sections</button>
-    <button class="tab-btn" data-tab="teachers">Manage Teachers</button>
+  <!-- Toolbar -->
+  <div class="toolbar mb-4">
+    <input type="search" id="search-box" class="form-control search-input" placeholder="Search by name or student ID…" />
+    <button class="btn btn-outline btn-sm" onclick="window.print()">🖨 Print QR Codes</button>
+    <button class="btn btn-primary btn-sm" id="add-btn">+ Add Student</button>
   </div>
 
-  <!-- TAB: STUDENTS -->
-  <div id="tab-students" class="tab-panel active">
-    <div class="toolbar mb-4" style="flex-wrap:wrap;gap:8px;">
-      <input type="search" id="search-box" class="form-control search-input" placeholder="Search by name or student ID…" />
-      <select id="section-filter-students" class="form-control" style="max-width:200px;">
-        <option value="">All Sections</option>
-      </select>
-      <button class="btn btn-outline btn-sm" onclick="window.print()">&#128424; Print QR Codes</button>
-      <button class="btn btn-primary btn-sm" id="add-btn">+ Add Student</button>
-    </div>
-    <div class="table-wrap">
-      <table>
-        <thead>
-          <tr>
-            <th>QR Code</th><th>Student ID</th><th>Full Name</th><th>Section</th>
-            <th>Parent Email</th><th>Parent Phone</th><th>RFID UID</th><th>Status</th><th>Actions</th>
-          </tr>
-        </thead>
-        <tbody id="student-body">
-          <tr><td colspan="9" class="text-center" style="padding:32px;color:var(--muted);">
-            <div class="spinner"></div>Loading students…
-          </td></tr>
-        </tbody>
-      </table>
-    </div>
-  </div>
-
-  <!-- TAB: SECTIONS -->
-  <div id="tab-sections" class="tab-panel">
-    <div class="toolbar mb-4">
-      <button class="btn btn-primary btn-sm" id="add-section-btn">+ Add Section</button>
-    </div>
-    <div class="table-wrap">
-      <table>
-        <thead>
-          <tr><th>Section Name</th><th>Assigned Teacher</th><th>Students</th><th>Status</th><th>Actions</th></tr>
-        </thead>
-        <tbody id="section-body">
-          <tr><td colspan="5" class="text-center" style="padding:32px;color:var(--muted);">
-            <div class="spinner"></div>Loading sections…
-          </td></tr>
-        </tbody>
-      </table>
-    </div>
-  </div>
-
-  <!-- TAB: TEACHERS -->
-  <div id="tab-teachers" class="tab-panel">
-    <div class="toolbar mb-4">
-      <button class="btn btn-primary btn-sm" id="add-teacher-btn">+ Add Teacher Account</button>
-    </div>
-    <div class="table-wrap">
-      <table>
-        <thead>
-          <tr><th>Teacher Name</th><th>Email</th><th>Assigned Sections</th><th>Actions</th></tr>
-        </thead>
-        <tbody id="teacher-body">
-          <tr><td colspan="4" class="text-center" style="padding:32px;color:var(--muted);">
-            <div class="spinner"></div>Loading teachers…
-          </td></tr>
-        </tbody>
-      </table>
-    </div>
+  <!-- Table -->
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr>
+          <th>QR Code</th>
+          <th>Student ID</th>
+          <th>Full Name</th>
+          <th>Section</th>
+          <th>Parent Email</th>
+          <th>Parent Phone</th>
+          <th>RFID UID</th>
+          <th>Status</th>
+          <th>Actions</th>
+        </tr>
+      </thead>
+      <tbody id="student-body">
+        <tr><td colspan="9" class="text-center" style="padding:32px;color:var(--muted);">
+          <div class="spinner"></div>Loading students…
+        </td></tr>
+      </tbody>
+    </table>
   </div>
 </div>
 
-<!-- STUDENT: Add/Edit Modal -->
+<!-- Add / Edit Modal -->
 <div class="modal-backdrop hidden" id="modal-backdrop">
   <div class="modal" role="dialog" aria-modal="true" aria-labelledby="modal-title-text">
     <div class="modal-header">
       <div class="modal-title" id="modal-title-text">Add Student</div>
-      <button class="modal-close" id="modal-close" aria-label="Close">&#10005;</button>
+      <button class="modal-close" id="modal-close" aria-label="Close">✕</button>
     </div>
     <div class="modal-body">
       <div id="modal-error" class="alert alert-error hidden"></div>
       <div id="modal-success" class="alert alert-success hidden"></div>
+
       <input type="hidden" id="edit-id" />
+
       <div class="flex gap-4">
         <div class="form-group w-full">
           <label class="form-label" for="f-first">First Name *</label>
@@ -169,7 +124,7 @@
       </div>
       <div class="form-group">
         <label class="form-label" for="f-rfid">RFID Card UID</label>
-        <input type="text" id="f-rfid" class="form-control" placeholder="e.g. A3F2B1C0" autocomplete="off" />
+        <input type="text" id="f-rfid" class="form-control" placeholder="e.g. A3F2B1C0 (leave blank if not assigned)" autocomplete="off" />
         <small style="color:var(--muted);font-size:.75rem;">Tap card on reader while this field is focused, or type manually.</small>
       </div>
       <div class="form-group" id="qr-group" style="display:none;">
@@ -185,10 +140,12 @@
   </div>
 </div>
 
-<!-- STUDENT: Deactivate Confirm -->
+<!-- Deactivate Confirm Modal -->
 <div class="modal-backdrop hidden" id="deactivate-backdrop">
   <div class="modal" style="max-width:380px;">
-    <div class="modal-header"><div class="modal-title">Deactivate Student?</div></div>
+    <div class="modal-header">
+      <div class="modal-title">Deactivate Student?</div>
+    </div>
     <div class="modal-body">
       <p style="font-size:.9rem;">Are you sure you want to deactivate <strong id="deactivate-name"></strong>?
       Their QR code will no longer be accepted at the scanner.</p>
@@ -200,192 +157,63 @@
   </div>
 </div>
 
-<!-- SECTION: Add/Edit Modal -->
-<div class="modal-backdrop hidden" id="section-modal-backdrop">
-  <div class="modal" style="max-width:420px;" role="dialog" aria-modal="true">
-    <div class="modal-header">
-      <div class="modal-title" id="section-modal-title">Add Section</div>
-      <button class="modal-close" id="section-modal-close" aria-label="Close">&#10005;</button>
-    </div>
-    <div class="modal-body">
-      <div id="section-modal-error" class="alert alert-error hidden"></div>
-      <div id="section-modal-success" class="alert alert-success hidden"></div>
-      <input type="hidden" id="section-edit-id" />
-      <div class="form-group">
-        <label class="form-label" for="section-name-input">Section Name *</label>
-        <input type="text" id="section-name-input" class="form-control" required placeholder="e.g. Grade 7 — Mabini" />
-      </div>
-    </div>
-    <div class="modal-footer">
-      <button class="btn btn-outline" id="section-cancel-btn">Cancel</button>
-      <button class="btn btn-primary" id="section-save-btn">Save Section</button>
-    </div>
-  </div>
-</div>
-
-<!-- SECTION: Deactivate Confirm -->
-<div class="modal-backdrop hidden" id="section-deactivate-backdrop">
-  <div class="modal" style="max-width:380px;">
-    <div class="modal-header"><div class="modal-title">Deactivate Section?</div></div>
-    <div class="modal-body">
-      <p style="font-size:.9rem;">Are you sure you want to deactivate <strong id="section-deactivate-name"></strong>?
-      Students in this section will remain but the section will be hidden from new assignments.</p>
-      <p id="section-enrolled-warn" class="hidden" style="font-size:.85rem;color:var(--danger);margin-top:8px;">
-        &#9888; This section currently has enrolled students.
-      </p>
-    </div>
-    <div class="modal-footer">
-      <button class="btn btn-outline" id="section-deactivate-cancel">Cancel</button>
-      <button class="btn btn-danger" id="section-deactivate-confirm">Deactivate</button>
-    </div>
-  </div>
-</div>
-
-<!-- TEACHER: Assign Sections Modal -->
-<div class="modal-backdrop hidden" id="teacher-modal-backdrop">
-  <div class="modal" style="max-width:500px;" role="dialog" aria-modal="true">
-    <div class="modal-header">
-      <div class="modal-title">Assign Sections</div>
-      <button class="modal-close" id="teacher-modal-close" aria-label="Close">&#10005;</button>
-    </div>
-    <div class="modal-body">
-      <div id="teacher-modal-error" class="alert alert-error hidden"></div>
-      <div id="teacher-modal-success" class="alert alert-success hidden"></div>
-      <p style="font-size:.88rem;color:var(--muted);margin-bottom:12px;">
-        Assigning sections to <strong id="teacher-modal-name"></strong>
-      </p>
-      <input type="hidden" id="teacher-edit-uid" />
-      <div id="teacher-section-checkboxes" class="section-checkbox-list"></div>
-    </div>
-    <div class="modal-footer">
-      <button class="btn btn-outline" id="teacher-cancel-btn">Cancel</button>
-      <button class="btn btn-primary" id="teacher-save-btn">Save Assignments</button>
-    </div>
-  </div>
-</div>
-
-<!-- TEACHER: Create Account Modal -->
-<div class="modal-backdrop hidden" id="create-teacher-backdrop">
-  <div class="modal" style="max-width:440px;" role="dialog" aria-modal="true">
-    <div class="modal-header">
-      <div class="modal-title">Add Teacher Account</div>
-      <button class="modal-close" id="create-teacher-close" aria-label="Close">&#10005;</button>
-    </div>
-    <div class="modal-body">
-      <div id="create-teacher-error" class="alert alert-error hidden"></div>
-      <div id="create-teacher-success" class="alert alert-success hidden"></div>
-      <p style="font-size:.82rem;color:var(--muted);margin-bottom:12px;">
-        Creates a Firebase Auth account with the <strong>teacher</strong> role.
-        After saving, the registrar will be signed out briefly — please log back in.
-      </p>
-      <div class="form-group">
-        <label class="form-label" for="ct-name">Full Name *</label>
-        <input type="text" id="ct-name" class="form-control" required placeholder="e.g. Maria Santos" />
-      </div>
-      <div class="form-group">
-        <label class="form-label" for="ct-email">Email *</label>
-        <input type="email" id="ct-email" class="form-control" required placeholder="teacher@school.edu" />
-      </div>
-      <div class="form-group">
-        <label class="form-label" for="ct-password">Password *</label>
-        <input type="password" id="ct-password" class="form-control" required placeholder="Minimum 6 characters" autocomplete="new-password" />
-      </div>
-    </div>
-    <div class="modal-footer">
-      <button class="btn btn-outline" id="create-teacher-cancel">Cancel</button>
-      <button class="btn btn-primary" id="create-teacher-save">Create Account</button>
-    </div>
-  </div>
-</div>
-
 <script type="module">
-  import { requireRole, logout, createTeacherAccount } from "../assets/js/auth.js";
+  import { requireRole, logout } from "../assets/js/auth.js";
   import {
-    getAllStudents, addStudent, updateStudent, deactivateStudent, getSections,
-    addSection, updateSection, deactivateSection,
-    getTeachers, updateUser,
-    writeAuditLog
+    getAllStudents, addStudent, updateStudent, deactivateStudent, getSections
   } from "../assets/js/firestore.js";
 
   let allStudents = [];
   let sections    = [];
-  let teachers    = [];
   let deactivateTarget = null;
-  let sectionDeactivateTarget = null;
-  let currentUser = null;
 
   document.getElementById("logout-btn").addEventListener("click", logout);
 
   requireRole("registrar", "principal")
     .then(async (user) => {
-      currentUser = user;
       document.getElementById("user-name").textContent = user.name || user.email;
       await loadData();
     })
     .catch(() => {});
 
   async function loadData() {
-    [allStudents, sections, teachers] = await Promise.all([
-      getAllStudents(), getSections(), getTeachers()
-    ]);
+    [allStudents, sections] = await Promise.all([getAllStudents(), getSections()]);
     populateSectionDropdown();
-    populateSectionFilterDropdown();
-    renderStudentTable(allStudents);
-    renderSectionTable();
-    renderTeacherTable();
+    renderTable(allStudents);
   }
-
-  // ── Tabs
-  document.querySelectorAll(".tab-btn").forEach(btn => {
-    btn.addEventListener("click", () => {
-      document.querySelectorAll(".tab-btn").forEach(b => b.classList.remove("active"));
-      document.querySelectorAll(".tab-panel").forEach(p => p.classList.remove("active"));
-      btn.classList.add("active");
-      document.getElementById("tab-" + btn.dataset.tab).classList.add("active");
-    });
-  });
 
   function populateSectionDropdown() {
     const sel = document.getElementById("f-section");
+    // keep default option
     sel.innerHTML = '<option value="">— Select section —</option>';
-    sections.filter(s => s.is_active !== false).forEach(s => {
-      const o = document.createElement("option");
-      o.value = s.id; o.textContent = s.name; sel.appendChild(o);
-    });
-  }
-
-  function populateSectionFilterDropdown() {
-    const sel = document.getElementById("section-filter-students");
-    sel.innerHTML = '<option value="">All Sections</option>';
     sections.forEach(s => {
       const o = document.createElement("option");
-      o.value = s.id; o.textContent = s.name; sel.appendChild(o);
+      o.value = s.id;
+      o.textContent = s.name;
+      sel.appendChild(o);
     });
   }
 
-  function applyStudentFilters() {
-    const q   = document.getElementById("search-box").value.toLowerCase();
-    const sec = document.getElementById("section-filter-students").value;
-    let filtered = allStudents;
-    if (sec) filtered = filtered.filter(s => s.section_id === sec);
-    if (q)   filtered = filtered.filter(s =>
+  // ── Search ──────────────────────────────────────────────────
+  document.getElementById("search-box").addEventListener("input", (e) => {
+    const q = e.target.value.toLowerCase();
+    const filtered = allStudents.filter(s =>
       `${s.first_name} ${s.last_name}`.toLowerCase().includes(q) ||
       (s.student_id || "").toLowerCase().includes(q)
     );
-    renderStudentTable(filtered);
-  }
+    renderTable(filtered);
+  });
 
-  document.getElementById("search-box").addEventListener("input", applyStudentFilters);
-  document.getElementById("section-filter-students").addEventListener("change", applyStudentFilters);
-
-  function renderStudentTable(students) {
+  // ── Render table ────────────────────────────────────────────
+  function renderTable(students) {
     const tbody = document.getElementById("student-body");
     if (students.length === 0) {
-      tbody.innerHTML = `<tr><td colspan="9" class="text-center" style="padding:32px;color:var(--muted);">No students found.</td></tr>`;
+      tbody.innerHTML = `<tr><td colspan="9" class="text-center" style="padding:32px;color:var(--muted);">
+        No students found.</td></tr>`;
       return;
     }
     tbody.innerHTML = students.map(s => {
-      const sec     = sections.find(x => x.id === s.section_id);
+      const sec    = sections.find(x => x.id === s.section_id);
       const secName = sec ? esc(sec.name) : '<span style="color:var(--muted)">—</span>';
       const status  = s.is_active
         ? '<span class="badge badge-green">Active</span>'
@@ -409,22 +237,32 @@
       </tr>`;
     }).join("");
 
+    // Generate QR thumbnails after DOM is updated
     students.forEach(s => {
       const cell = document.getElementById(`qr-cell-${s.id}`);
       if (cell && s.qr_code) {
         try {
-          new QRCode(cell, { text: s.qr_code, width: 52, height: 52,
-            colorDark: "#000000", colorLight: "#ffffff", correctLevel: QRCode.CorrectLevel.H });
+          new QRCode(cell, {
+            text: s.qr_code,
+            width: 52, height: 52,
+            colorDark: "#000000", colorLight: "#ffffff",
+            correctLevel: QRCode.CorrectLevel.H,
+          });
         } catch(e) { cell.textContent = "—"; }
-      } else if (cell) { cell.textContent = "—"; }
+      } else if (cell) {
+        cell.textContent = "—";
+      }
     });
 
+    // Edit buttons
     document.querySelectorAll(".edit-btn").forEach(btn => {
       btn.addEventListener("click", () => {
         const s = allStudents.find(x => x.id === btn.dataset.id);
         if (s) openEditModal(s);
       });
     });
+
+    // Deactivate buttons
     document.querySelectorAll(".deact-btn").forEach(btn => {
       btn.addEventListener("click", () => {
         deactivateTarget = btn.dataset.id;
@@ -434,94 +272,15 @@
     });
   }
 
-  function renderSectionTable() {
-    const tbody = document.getElementById("section-body");
-    if (sections.length === 0) {
-      tbody.innerHTML = `<tr><td colspan="5" class="text-center" style="padding:32px;color:var(--muted);">No sections found. Add one to get started.</td></tr>`;
-      return;
-    }
-    tbody.innerHTML = sections.map(s => {
-      const enrolled = allStudents.filter(st => st.section_id === s.id && st.is_active).length;
-      const teacher  = teachers.find(t => (t.assigned_sections || []).includes(s.id));
-      const teacherName = teacher
-        ? `<span class="teacher-pill">${esc(teacher.name || teacher.email)}</span>`
-        : '<span style="color:var(--muted);font-size:.82rem;">Unassigned</span>';
-      const status = s.is_active !== false
-        ? '<span class="badge badge-green">Active</span>'
-        : '<span class="badge badge-red">Inactive</span>';
-      const deactBtn = s.is_active !== false
-        ? `<button class="btn btn-danger btn-sm sec-deact-btn"
-             data-id="${s.id}" data-name="${esc(s.name)}" data-enrolled="${enrolled}">Deactivate</button>`
-        : '';
-      return `<tr>
-        <td style="font-weight:600;">${esc(s.name)}</td>
-        <td>${teacherName}</td>
-        <td style="color:var(--muted);font-size:.88rem;">${enrolled} student${enrolled !== 1 ? 's' : ''}</td>
-        <td>${status}</td>
-        <td style="white-space:nowrap;display:flex;gap:6px;">
-          <button class="btn btn-outline btn-sm sec-edit-btn" data-id="${s.id}" data-name="${esc(s.name)}">Rename</button>
-          ${deactBtn}
-        </td>
-      </tr>`;
-    }).join("");
+  // ── Add modal ───────────────────────────────────────────────
+  document.getElementById("add-btn").addEventListener("click", () => openAddModal());
 
-    document.querySelectorAll(".sec-edit-btn").forEach(btn => {
-      btn.addEventListener("click", () => openSectionEditModal(btn.dataset.id, btn.dataset.name));
-    });
-    document.querySelectorAll(".sec-deact-btn").forEach(btn => {
-      btn.addEventListener("click", () => {
-        sectionDeactivateTarget = btn.dataset.id;
-        document.getElementById("section-deactivate-name").textContent = btn.dataset.name;
-        const warnEl = document.getElementById("section-enrolled-warn");
-        parseInt(btn.dataset.enrolled) > 0 ? warnEl.classList.remove("hidden") : warnEl.classList.add("hidden");
-        document.getElementById("section-deactivate-backdrop").classList.remove("hidden");
-      });
-    });
-  }
-
-  function renderTeacherTable() {
-    const tbody = document.getElementById("teacher-body");
-    if (teachers.length === 0) {
-      tbody.innerHTML = `<tr><td colspan="4" class="text-center" style="padding:32px;color:var(--muted);">No teacher accounts found.</td></tr>`;
-      return;
-    }
-    tbody.innerHTML = teachers.map(t => {
-      const assigned = t.assigned_sections || [];
-      const secNames = assigned.length
-        ? assigned.map(sid => {
-            const s = sections.find(x => x.id === sid);
-            return s ? `<span class="teacher-pill">${esc(s.name)}</span>` : '';
-          }).filter(Boolean).join(' ')
-        : '<span style="color:var(--muted);font-size:.82rem;">None</span>';
-      return `<tr>
-        <td style="font-weight:600;">${esc(t.name || '—')}</td>
-        <td style="font-size:.82rem;color:var(--muted);">${esc(t.email || '—')}</td>
-        <td style="display:flex;flex-wrap:wrap;gap:4px;align-items:center;padding-top:10px;padding-bottom:10px;">${secNames}</td>
-        <td>
-          <button class="btn btn-outline btn-sm assign-btn"
-            data-uid="${t.id}"
-            data-name="${esc(t.name || t.email)}"
-            data-sections='${JSON.stringify(t.assigned_sections || [])}'>
-            Assign Sections
-          </button>
-        </td>
-      </tr>`;
-    }).join("");
-
-    document.querySelectorAll(".assign-btn").forEach(btn => {
-      btn.addEventListener("click", () => {
-        openTeacherAssignModal(btn.dataset.uid, btn.dataset.name, JSON.parse(btn.dataset.sections));
-      });
-    });
-  }
-
-  // ── Student Add/Edit Modal
-  document.getElementById("add-btn").addEventListener("click", () => {
+  function openAddModal() {
     document.getElementById("modal-title-text").textContent = "Add Student";
     clearForm();
     document.getElementById("qr-group").style.display = "none";
     document.getElementById("modal-backdrop").classList.remove("hidden");
-  });
+  }
 
   function openEditModal(s) {
     document.getElementById("modal-title-text").textContent = "Edit Student";
@@ -534,14 +293,21 @@
     document.getElementById("f-phone").value    = s.parent_phone || "";
     document.getElementById("f-rfid").value     = s.rfid_code || "";
     document.getElementById("f-qr").textContent = s.qr_code || "";
+
+    // Render QR image in modal
     const qrImgEl = document.getElementById("modal-qr-img");
     qrImgEl.innerHTML = "";
     if (s.qr_code) {
       try {
-        new QRCode(qrImgEl, { text: s.qr_code, width: 150, height: 150,
-          colorDark: "#000000", colorLight: "#ffffff", correctLevel: QRCode.CorrectLevel.H });
+        new QRCode(qrImgEl, {
+          text: s.qr_code,
+          width: 150, height: 150,
+          colorDark: "#000000", colorLight: "#ffffff",
+          correctLevel: QRCode.CorrectLevel.H,
+        });
       } catch(e) { qrImgEl.textContent = "QR error"; }
     }
+
     document.getElementById("qr-group").style.display = "block";
     clearAlerts();
     document.getElementById("modal-backdrop").classList.remove("hidden");
@@ -551,12 +317,14 @@
     document.getElementById("modal-backdrop").classList.add("hidden");
     clearForm();
   }
-  document.getElementById("modal-close").addEventListener("click", closeModal);
-  document.getElementById("cancel-btn").addEventListener("click", closeModal);
+
+  document.getElementById("modal-close").addEventListener("click",  closeModal);
+  document.getElementById("cancel-btn").addEventListener("click",   closeModal);
   document.getElementById("modal-backdrop").addEventListener("click", (e) => {
     if (e.target === document.getElementById("modal-backdrop")) closeModal();
   });
 
+  // ── Save ────────────────────────────────────────────────────
   document.getElementById("save-btn").addEventListener("click", async () => {
     clearAlerts();
     const id        = document.getElementById("edit-id").value;
@@ -569,41 +337,50 @@
     const rfid      = document.getElementById("f-rfid").value.trim();
 
     if (!firstName || !lastName || !studentId || !sectionId) {
-      showModalError("Please fill in all required fields (*)."); return;
+      showModalError("Please fill in all required fields (*).");
+      return;
     }
 
     const secObj = sections.find(s => s.id === sectionId);
     const data = {
-      first_name: firstName, last_name: lastName, student_id: studentId,
-      section_id: sectionId, section_name: secObj ? secObj.name : "",
-      parent_email: email, parent_phone: phone, rfid_code: rfid || null,
+      first_name:   firstName,
+      last_name:    lastName,
+      student_id:   studentId,
+      section_id:   sectionId,
+      section_name: secObj ? secObj.name : "",
+      parent_email: email,
+      parent_phone: phone,
+      rfid_code:    rfid || null,
     };
 
     const saveBtn = document.getElementById("save-btn");
-    saveBtn.disabled = true; saveBtn.textContent = "Saving…";
+    saveBtn.disabled = true;
+    saveBtn.textContent = "Saving…";
 
     let ok = false;
     if (id) {
+      // Edit
       ok = await updateStudent(id, data);
-      if (ok && currentUser) await writeAuditLog(currentUser.uid, currentUser.name || currentUser.email,
-        "edit_student", `${firstName} ${lastName} (${studentId})`, data);
     } else {
+      // Add — generate unique QR code
       data.qr_code = "JCA-" + studentId.replace(/\s/g,"") + "-" + Date.now();
       const newId = await addStudent(data);
       ok = !!newId;
-      if (ok && currentUser) await writeAuditLog(currentUser.uid, currentUser.name || currentUser.email,
-        "add_student", `${firstName} ${lastName} (${studentId})`, data);
     }
 
-    saveBtn.disabled = false; saveBtn.textContent = "Save Student";
+    saveBtn.disabled = false;
+    saveBtn.textContent = "Save Student";
+
     if (ok) {
       showModalSuccess(id ? "Student updated successfully." : "Student added successfully.");
-      await loadData(); setTimeout(closeModal, 1200);
+      await loadData();
+      setTimeout(closeModal, 1200);
     } else {
       showModalError("Failed to save. Please try again.");
     }
   });
 
+  // ── Deactivate ──────────────────────────────────────────────
   document.getElementById("deactivate-cancel").addEventListener("click", () => {
     document.getElementById("deactivate-backdrop").classList.add("hidden");
     deactivateTarget = null;
@@ -611,200 +388,17 @@
   document.getElementById("deactivate-confirm").addEventListener("click", async () => {
     if (!deactivateTarget) return;
     const btn = document.getElementById("deactivate-confirm");
-    btn.disabled = true; btn.textContent = "Deactivating…";
-    const target = allStudents.find(s => s.id === deactivateTarget);
+    btn.disabled = true;
+    btn.textContent = "Deactivating…";
     await deactivateStudent(deactivateTarget);
-    if (target && currentUser) await writeAuditLog(currentUser.uid, currentUser.name || currentUser.email,
-      "deactivate_student", `${target.first_name} ${target.last_name} (${target.student_id})`, {});
     deactivateTarget = null;
     document.getElementById("deactivate-backdrop").classList.add("hidden");
-    btn.disabled = false; btn.textContent = "Deactivate";
+    btn.disabled = false;
+    btn.textContent = "Deactivate";
     await loadData();
   });
 
-  // ── Section Add/Edit
-  document.getElementById("add-section-btn").addEventListener("click", () => {
-    document.getElementById("section-modal-title").textContent = "Add Section";
-    document.getElementById("section-edit-id").value = "";
-    document.getElementById("section-name-input").value = "";
-    document.getElementById("section-modal-error").classList.add("hidden");
-    document.getElementById("section-modal-success").classList.add("hidden");
-    document.getElementById("section-modal-backdrop").classList.remove("hidden");
-  });
-
-  function openSectionEditModal(id, name) {
-    document.getElementById("section-modal-title").textContent = "Rename Section";
-    document.getElementById("section-edit-id").value = id;
-    document.getElementById("section-name-input").value = name;
-    document.getElementById("section-modal-error").classList.add("hidden");
-    document.getElementById("section-modal-success").classList.add("hidden");
-    document.getElementById("section-modal-backdrop").classList.remove("hidden");
-  }
-
-  function closeSectionModal() {
-    document.getElementById("section-modal-backdrop").classList.add("hidden");
-  }
-  document.getElementById("section-modal-close").addEventListener("click", closeSectionModal);
-  document.getElementById("section-cancel-btn").addEventListener("click", closeSectionModal);
-
-  document.getElementById("section-save-btn").addEventListener("click", async () => {
-    const id   = document.getElementById("section-edit-id").value;
-    const name = document.getElementById("section-name-input").value.trim();
-    if (!name) {
-      document.getElementById("section-modal-error").textContent = "Section name is required.";
-      document.getElementById("section-modal-error").classList.remove("hidden"); return;
-    }
-    const btn = document.getElementById("section-save-btn");
-    btn.disabled = true; btn.textContent = "Saving…";
-    let ok = false;
-    if (id) {
-      ok = await updateSection(id, { name });
-      if (ok && currentUser) await writeAuditLog(currentUser.uid, currentUser.name || currentUser.email,
-        "rename_section", name, { id });
-    } else {
-      const newId = await addSection({ name });
-      ok = !!newId;
-      if (ok && currentUser) await writeAuditLog(currentUser.uid, currentUser.name || currentUser.email,
-        "add_section", name, {});
-    }
-    btn.disabled = false; btn.textContent = "Save Section";
-    if (ok) {
-      document.getElementById("section-modal-success").textContent = id ? "Section renamed." : "Section added.";
-      document.getElementById("section-modal-success").classList.remove("hidden");
-      await loadData(); setTimeout(closeSectionModal, 1000);
-    } else {
-      document.getElementById("section-modal-error").textContent = "Failed to save. Please try again.";
-      document.getElementById("section-modal-error").classList.remove("hidden");
-    }
-  });
-
-  document.getElementById("section-deactivate-cancel").addEventListener("click", () => {
-    document.getElementById("section-deactivate-backdrop").classList.add("hidden");
-    sectionDeactivateTarget = null;
-  });
-  document.getElementById("section-deactivate-confirm").addEventListener("click", async () => {
-    if (!sectionDeactivateTarget) return;
-    const btn = document.getElementById("section-deactivate-confirm");
-    btn.disabled = true; btn.textContent = "Deactivating…";
-    const target = sections.find(s => s.id === sectionDeactivateTarget);
-    await deactivateSection(sectionDeactivateTarget);
-    if (target && currentUser) await writeAuditLog(currentUser.uid, currentUser.name || currentUser.email,
-      "deactivate_section", target.name, {});
-    sectionDeactivateTarget = null;
-    document.getElementById("section-deactivate-backdrop").classList.add("hidden");
-    btn.disabled = false; btn.textContent = "Deactivate";
-    await loadData();
-  });
-
-  // ── Teacher Create Account
-  document.getElementById("add-teacher-btn").addEventListener("click", () => {
-    document.getElementById("ct-name").value = "";
-    document.getElementById("ct-email").value = "";
-    document.getElementById("ct-password").value = "";
-    document.getElementById("create-teacher-error").classList.add("hidden");
-    document.getElementById("create-teacher-success").classList.add("hidden");
-    document.getElementById("create-teacher-backdrop").classList.remove("hidden");
-  });
-
-  function closeCreateTeacherModal() {
-    document.getElementById("create-teacher-backdrop").classList.add("hidden");
-  }
-  document.getElementById("create-teacher-close").addEventListener("click", closeCreateTeacherModal);
-  document.getElementById("create-teacher-cancel").addEventListener("click", closeCreateTeacherModal);
-
-  document.getElementById("create-teacher-save").addEventListener("click", async () => {
-    const name     = document.getElementById("ct-name").value.trim();
-    const email    = document.getElementById("ct-email").value.trim();
-    const password = document.getElementById("ct-password").value;
-    const errEl    = document.getElementById("create-teacher-error");
-    const sucEl    = document.getElementById("create-teacher-success");
-    errEl.classList.add("hidden"); sucEl.classList.add("hidden");
-
-    if (!name || !email || !password) {
-      errEl.textContent = "All fields are required.";
-      errEl.classList.remove("hidden"); return;
-    }
-
-    const btn = document.getElementById("create-teacher-save");
-    btn.disabled = true; btn.textContent = "Creating…";
-
-    const result = await createTeacherAccount(name, email, password);
-    btn.disabled = false; btn.textContent = "Create Account";
-
-    if (result.ok) {
-      if (currentUser) await writeAuditLog(currentUser.uid, currentUser.name || currentUser.email,
-        "create_teacher", `${name} (${email})`, {});
-      sucEl.textContent = `Account created for ${name}. You will be signed out — please log back in.`;
-      sucEl.classList.remove("hidden");
-      // createTeacherAccount signs out; redirect to login after 2s
-      setTimeout(() => { window.location.href = "../index.html"; }, 2500);
-    } else {
-      errEl.textContent = result.error || "Failed to create account.";
-      errEl.classList.remove("hidden");
-    }
-  });
-
-  // ── Teacher Assign Sections
-  function openTeacherAssignModal(uid, name, assignedSections) {
-    document.getElementById("teacher-edit-uid").value = uid;
-    document.getElementById("teacher-modal-name").textContent = name;
-    document.getElementById("teacher-modal-error").classList.add("hidden");
-    document.getElementById("teacher-modal-success").classList.add("hidden");
-    const container = document.getElementById("teacher-section-checkboxes");
-    const activeSections = sections.filter(s => s.is_active !== false);
-    if (activeSections.length === 0) {
-      container.innerHTML = '<p style="color:var(--muted);font-size:.88rem;">No active sections available.</p>';
-    } else {
-      container.innerHTML = activeSections.map(s => `
-        <label>
-          <input type="checkbox" value="${s.id}" ${assignedSections.includes(s.id) ? "checked" : ""} />
-          ${esc(s.name)}
-        </label>
-      `).join("");
-    }
-    document.getElementById("teacher-modal-backdrop").classList.remove("hidden");
-  }
-
-  function closeTeacherModal() {
-    document.getElementById("teacher-modal-backdrop").classList.add("hidden");
-  }
-  document.getElementById("teacher-modal-close").addEventListener("click", closeTeacherModal);
-  document.getElementById("teacher-cancel-btn").addEventListener("click", closeTeacherModal);
-
-  document.getElementById("teacher-save-btn").addEventListener("click", async () => {
-    const uid = document.getElementById("teacher-edit-uid").value;
-    const checked = [...document.querySelectorAll("#teacher-section-checkboxes input:checked")].map(c => c.value);
-    const btn = document.getElementById("teacher-save-btn");
-    btn.disabled = true; btn.textContent = "Saving…";
-
-    const ok = await updateUser(uid, { assigned_sections: checked });
-
-    // Update section documents to reflect teacher_uid
-    for (const s of sections) {
-      const nowAssigned = checked.includes(s.id);
-      const currentTeacherUid = s.teacher_uid || null;
-      if (nowAssigned && currentTeacherUid !== uid) {
-        await updateSection(s.id, { teacher_uid: uid });
-      } else if (!nowAssigned && currentTeacherUid === uid) {
-        await updateSection(s.id, { teacher_uid: null });
-      }
-    }
-
-    btn.disabled = false; btn.textContent = "Save Assignments";
-    if (ok) {
-      const teacher = teachers.find(t => t.id === uid);
-      if (currentUser) await writeAuditLog(currentUser.uid, currentUser.name || currentUser.email,
-        "assign_sections", teacher ? (teacher.name || teacher.email) : uid, { sections: checked });
-      document.getElementById("teacher-modal-success").textContent = "Sections assigned successfully.";
-      document.getElementById("teacher-modal-success").classList.remove("hidden");
-      await loadData(); setTimeout(closeTeacherModal, 1000);
-    } else {
-      document.getElementById("teacher-modal-error").textContent = "Failed to save. Please try again.";
-      document.getElementById("teacher-modal-error").classList.remove("hidden");
-    }
-  });
-
-  // ── Helpers
+  // ── Helpers ─────────────────────────────────────────────────
   function clearForm() {
     ["edit-id","f-first","f-last","f-sid","f-email","f-phone","f-rfid"].forEach(id => {
       document.getElementById(id).value = "";
@@ -820,15 +414,18 @@
   }
   function showModalError(msg) {
     const el = document.getElementById("modal-error");
-    el.textContent = msg; el.classList.remove("hidden");
+    el.textContent = msg;
+    el.classList.remove("hidden");
   }
   function showModalSuccess(msg) {
     const el = document.getElementById("modal-success");
-    el.textContent = msg; el.classList.remove("hidden");
+    el.textContent = msg;
+    el.classList.remove("hidden");
   }
   function esc(s) {
     const d = document.createElement("div");
-    d.textContent = s || ""; return d.innerHTML;
+    d.textContent = s || "";
+    return d.innerHTML;
   }
 </script>
 </body>
