@@ -2,10 +2,11 @@
 import { auth, db } from "../../firebase-config.js";
 import {
   signInWithEmailAndPassword,
+  createUserWithEmailAndPassword,
   signOut,
   onAuthStateChanged as _onAuthChanged
 } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-auth.js";
-import { doc, getDoc }   from "https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore.js";
+import { doc, getDoc, setDoc } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore.js";
 
 // ─────────────────────────────────────────────────────────────
 // Role → dashboard path map
@@ -17,12 +18,8 @@ const ROLE_PATHS = {
   scanner:    "/scanner/index.html",
 };
 
-// Helper: figure out repo base path for GitHub Pages
-// e.g. "https://user.github.io/repo-name" → "/repo-name"
 function basePath() {
   const seg = window.location.pathname.split("/");
-  // If deployed to GitHub Pages under a sub-path, first segment after /
-  // will be the repo name. If served from root (custom domain), return "".
   if (seg.length >= 2 && seg[1] !== "" && !seg[1].includes(".html")) {
     return "/" + seg[1];
   }
@@ -31,7 +28,6 @@ function basePath() {
 
 // ─────────────────────────────────────────────────────────────
 // login(email, password) → Promise<{ok, error}>
-// Signs in, reads role from Firestore, redirects to dashboard.
 // ─────────────────────────────────────────────────────────────
 async function login(email, password) {
   try {
@@ -69,7 +65,41 @@ async function login(email, password) {
 }
 
 // ─────────────────────────────────────────────────────────────
-// logout() → signs out, redirects to login page
+// createTeacherAccount(name, email, password) → Promise<{ok, uid, error}>
+// Called by registrar to provision a new teacher Firebase Auth account
+// and write their Firestore user document.
+// ─────────────────────────────────────────────────────────────
+async function createTeacherAccount(name, email, password) {
+  try {
+    const cred = await createUserWithEmailAndPassword(auth, email, password);
+    const uid  = cred.user.uid;
+
+    await setDoc(doc(db, "users", uid), {
+      name,
+      email,
+      role: "teacher",
+      assigned_sections: [],
+      created_at: new Date().toISOString(),
+    });
+
+    // NOTE: this signs in as the new teacher. The registrar must re-login.
+    await signOut(auth);
+    return { ok: true, uid };
+  } catch (err) {
+    let msg = "Failed to create account.";
+    if (err.code === "auth/email-already-in-use") {
+      msg = "That email address is already registered.";
+    } else if (err.code === "auth/invalid-email") {
+      msg = "Invalid email address.";
+    } else if (err.code === "auth/weak-password") {
+      msg = "Password must be at least 6 characters.";
+    }
+    return { ok: false, error: msg };
+  }
+}
+
+// ─────────────────────────────────────────────────────────────
+// logout()
 // ─────────────────────────────────────────────────────────────
 async function logout() {
   try { await signOut(auth); } catch (_) {}
@@ -78,14 +108,11 @@ async function logout() {
 
 // ─────────────────────────────────────────────────────────────
 // requireRole(...roles)
-// Call at top of every protected page. Redirects to login if
-// user is not authenticated or does not hold an allowed role.
-// Returns a Promise that resolves to the current user + role.
 // ─────────────────────────────────────────────────────────────
 function requireRole(...roles) {
   return new Promise((resolve, reject) => {
     const unsub = _onAuthChanged(auth, async (user) => {
-      unsub(); // only fire once
+      unsub();
 
       if (!user) {
         window.location.href = basePath() + "/index.html";
@@ -116,11 +143,8 @@ function requireRole(...roles) {
   });
 }
 
-// ─────────────────────────────────────────────────────────────
-// onAuthStateChanged wrapper (re-export for convenience)
-// ─────────────────────────────────────────────────────────────
 function onAuthStateChanged(cb) {
   return _onAuthChanged(auth, cb);
 }
 
-export { login, logout, requireRole, onAuthStateChanged, basePath };
+export { login, logout, requireRole, onAuthStateChanged, basePath, createTeacherAccount };
