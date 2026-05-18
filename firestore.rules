@@ -1,0 +1,53 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // ── Helpers ──────────────────────────────────────────────
+    function userDoc() {
+      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data;
+    }
+    function role() {
+      return userDoc().role;
+    }
+    function isAnyRole(roles) {
+      return request.auth != null && role() in roles;
+    }
+
+    // ── Users ────────────────────────────────────────────────
+    // FIX: registrar needs to query users by role (getTeachers).
+    // Allow read for own doc, or principal/registrar for all docs.
+    match /users/{uid} {
+      allow read: if request.auth != null &&
+                    (request.auth.uid == uid || isAnyRole(['principal', 'registrar']));
+      allow write: if false; // managed via Firebase Console / Admin SDK only
+    }
+
+    // ── Sections ─────────────────────────────────────────────
+    match /sections/{id} {
+      allow read:  if request.auth != null;
+      allow write: if isAnyRole(['principal', 'registrar']);
+    }
+
+    // ── Students ─────────────────────────────────────────────
+    match /students/{id} {
+      allow read:   if request.auth != null;
+      allow create, update: if isAnyRole(['registrar', 'principal']);
+      allow delete: if false; // use is_active = false instead
+    }
+
+    // ── Attendance Logs ──────────────────────────────────────
+    match /attendance_logs/{id} {
+      allow read:   if isAnyRole(['teacher', 'principal', 'registrar', 'scanner']);
+      allow create: if isAnyRole(['scanner', 'teacher', 'registrar', 'principal']);
+      allow update: if isAnyRole(['principal']); // watcher uses Admin SDK (bypasses rules)
+      allow delete: if false;
+    }
+
+    // ── Audit Logs ───────────────────────────────────────────
+    match /audit_logs/{doc} {
+      allow read:   if isAnyRole(['principal', 'registrar']);
+      allow create: if request.auth != null;
+      allow update, delete: if false;
+    }
+  }
+}
