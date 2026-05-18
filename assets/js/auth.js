@@ -14,6 +14,7 @@ const ROLE_PATHS = {
   principal:  "/principal/index.html",
   teacher:    "/teacher/index.html",
   registrar:  "/registrar/index.html",
+  admin:  "/admin/index.html",
   scanner:    "/scanner/index.html",
 };
 
