@@ -279,9 +279,7 @@ async function getStudentLogsToday(studentId) {
       where("date", "==", today)
     );
     const snap = await getDocs(q);
-    const logs = snap.docs.map(d => ({ id: d.id, ...d.data() }));
-    logs.sort((a, b) => b.scan_time.localeCompare(a.scan_time));
-    return logs;
+    return snap.docs.map(d => ({ id: d.id, ...d.data() }));
   } catch (err) {
     console.error("getStudentLogsToday error:", err);
     return [];
@@ -324,7 +322,6 @@ async function getAttendanceByRange(dateFrom, dateTo, sectionFilter) {
     if (sectionFilter) {
       logs = logs.filter(l => l.section === sectionFilter);
     }
-    logs.sort((a, b) => a.date.localeCompare(b.date) || a.scan_time.localeCompare(b.scan_time));
     return logs;
   } catch (err) {
     console.error("getAttendanceByRange error:", err);
@@ -337,20 +334,12 @@ async function getAttendanceByRange(dateFrom, dateTo, sectionFilter) {
  * Calls callback(logs) every time data changes.
  * Returns the unsubscribe function.
  */
-function watchAttendanceByDate(date, callback, sectionId = null) {
-  let q;
-  if (sectionId) {
-    q = query(
-      collection(db, "attendance_logs"),
-      where("date", "==", date),
-      where("section_id", "==", sectionId)
-    );
-  } else {
-    q = query(
-      collection(db, "attendance_logs"),
-      where("date", "==", date)
-    );
-  }
+function watchAttendanceByDate(date, callback) {
+  const q = query(
+    collection(db, "attendance_logs"),
+    where("date", "==", date),
+    orderBy("scan_time", "asc")
+  );
   return onSnapshot(q, (snap) => {
     const logs = snap.docs.map(d => ({ id: d.id, ...d.data() }));
     logs.sort((a, b) => a.scan_time.localeCompare(b.scan_time));
