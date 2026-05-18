@@ -1,12 +1,14 @@
 // assets/js/auth.js
-import { auth, db } from "../../firebase-config.js";
+import { auth, db, app as primaryApp } from "../../firebase-config.js";
 import {
   signInWithEmailAndPassword,
   createUserWithEmailAndPassword,
   signOut,
-  onAuthStateChanged as _onAuthChanged
+  onAuthStateChanged as _onAuthChanged,
+  getAuth
 } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-auth.js";
 import { doc, getDoc, setDoc } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore.js";
+import { initializeApp, getApps, getApp } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-app.js";
 
 // ─────────────────────────────────────────────────────────────
 // Role → dashboard path map
@@ -70,10 +72,25 @@ async function login(email, password) {
 // and write their Firestore user document.
 // ─────────────────────────────────────────────────────────────
 async function createTeacherAccount(name, email, password) {
+  // Use a secondary Firebase app so the registrar's auth session is NEVER
+  // disturbed. createUserWithEmailAndPassword on the primary app immediately
+  // signs in as the new teacher and fires onAuthStateChanged, causing the
+  // registrar page to redirect to login before the operation completes.
+  let secondaryApp;
   try {
-    const cred = await createUserWithEmailAndPassword(auth, email, password);
+    const existingApps = getApps();
+    const existing = existingApps.find(a => a.name === "secondary");
+    secondaryApp = existing || initializeApp(primaryApp.options, "secondary");
+  } catch (_) {
+    secondaryApp = getApp("secondary");
+  }
+
+  try {
+    const secondaryAuth = getAuth(secondaryApp);
+    const cred = await createUserWithEmailAndPassword(secondaryAuth, email, password);
     const uid  = cred.user.uid;
 
+    // Write Firestore profile using primary db — registrar's session stays intact
     await setDoc(doc(db, "users", uid), {
       name,
       email,
@@ -82,8 +99,8 @@ async function createTeacherAccount(name, email, password) {
       created_at: new Date().toISOString(),
     });
 
-    // NOTE: this signs in as the new teacher. The registrar must re-login.
-    await signOut(auth);
+    // Sign out only the secondary app's session
+    await signOut(secondaryAuth);
     return { ok: true, uid };
   } catch (err) {
     let msg = "Failed to create account.";

@@ -734,10 +734,11 @@
     if (result.ok) {
       if (currentUser) await writeAuditLog(currentUser.uid, currentUser.name || currentUser.email,
         "create_teacher", `${name} (${email})`, {});
-      sucEl.textContent = `Account created for ${name}. You will be signed out — please log back in.`;
+      sucEl.textContent = `Account created for ${name}. You can now assign them to a section.`;
       sucEl.classList.remove("hidden");
-      // createTeacherAccount signs out; redirect to login after 2s
-      setTimeout(() => { window.location.href = "../index.html"; }, 2500);
+      // Refresh teacher list so the new teacher appears immediately
+      await loadData();
+      setTimeout(closeCreateTeacherModal, 2000);
     } else {
       errEl.textContent = result.error || "Failed to create account.";
       errEl.classList.remove("hidden");
@@ -779,14 +780,19 @@
 
     const ok = await updateUser(uid, { assigned_sections: checked });
 
-    // Update section documents to reflect teacher_uid
+    // Update section documents to reflect teacher_uid (best-effort — display
+    // uses assigned_sections on the teacher doc so this is only for reference)
     for (const s of sections) {
       const nowAssigned = checked.includes(s.id);
       const currentTeacherUid = s.teacher_uid || null;
-      if (nowAssigned && currentTeacherUid !== uid) {
-        await updateSection(s.id, { teacher_uid: uid });
-      } else if (!nowAssigned && currentTeacherUid === uid) {
-        await updateSection(s.id, { teacher_uid: null });
+      try {
+        if (nowAssigned && currentTeacherUid !== uid) {
+          await updateSection(s.id, { teacher_uid: uid });
+        } else if (!nowAssigned && currentTeacherUid === uid) {
+          await updateSection(s.id, { teacher_uid: null });
+        }
+      } catch (e) {
+        console.warn("Could not update teacher_uid on section", s.id, e);
       }
     }
 
@@ -799,7 +805,7 @@
       document.getElementById("teacher-modal-success").classList.remove("hidden");
       await loadData(); setTimeout(closeTeacherModal, 1000);
     } else {
-      document.getElementById("teacher-modal-error").textContent = "Failed to save. Please try again.";
+      document.getElementById("teacher-modal-error").textContent = "Failed to save assignments. Please try again.";
       document.getElementById("teacher-modal-error").classList.remove("hidden");
     }
   });
