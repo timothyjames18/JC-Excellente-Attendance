@@ -59,7 +59,6 @@
   <div class="tab-bar">
     <button class="tab-btn active" data-tab="students">Students</button>
     <button class="tab-btn" data-tab="sections">Manage Sections</button>
-    <button class="tab-btn" data-tab="teachers">Manage Teachers</button>
   </div>
 
   <!-- TAB: STUDENTS -->
@@ -108,24 +107,6 @@
     </div>
   </div>
 
-  <!-- TAB: TEACHERS -->
-  <div id="tab-teachers" class="tab-panel">
-    <div class="toolbar mb-4">
-      <button class="btn btn-primary btn-sm" id="add-teacher-btn">+ Add Teacher Account</button>
-    </div>
-    <div class="table-wrap">
-      <table>
-        <thead>
-          <tr><th>Teacher Name</th><th>Email</th><th>Assigned Sections</th><th>Actions</th></tr>
-        </thead>
-        <tbody id="teacher-body">
-          <tr><td colspan="4" class="text-center" style="padding:32px;color:var(--muted);">
-            <div class="spinner"></div>Loading teachers…
-          </td></tr>
-        </tbody>
-      </table>
-    </div>
-  </div>
 </div>
 
 <!-- STUDENT: Add/Edit Modal -->
@@ -214,6 +195,12 @@
       <div class="form-group">
         <label class="form-label" for="section-name-input">Section Name *</label>
         <input type="text" id="section-name-input" class="form-control" required placeholder="e.g. Grade 7 — Mabini" />
+      </div>
+      <div class="form-group" id="section-teacher-group">
+        <label class="form-label" for="section-teacher-select">Assign Teacher</label>
+        <select id="section-teacher-select" class="form-control">
+          <option value="">— Unassigned —</option>
+        </select>
       </div>
     </div>
     <div class="modal-footer">
@@ -459,14 +446,14 @@
         <td style="color:var(--muted);font-size:.88rem;">${enrolled} student${enrolled !== 1 ? 's' : ''}</td>
         <td>${status}</td>
         <td style="white-space:nowrap;display:flex;gap:6px;">
-          <button class="btn btn-outline btn-sm sec-edit-btn" data-id="${s.id}" data-name="${esc(s.name)}">Rename</button>
+          <button class="btn btn-outline btn-sm sec-edit-btn" data-id="${s.id}" data-name="${esc(s.name)}" data-teacher="${teacher ? teacher.id : ''}">Rename</button>
           ${deactBtn}
         </td>
       </tr>`;
     }).join("");
 
     document.querySelectorAll(".sec-edit-btn").forEach(btn => {
-      btn.addEventListener("click", () => openSectionEditModal(btn.dataset.id, btn.dataset.name));
+      btn.addEventListener("click", () => openSectionEditModal(btn.dataset.id, btn.dataset.name, btn.dataset.teacher));
     });
     document.querySelectorAll(".sec-deact-btn").forEach(btn => {
       btn.addEventListener("click", () => {
@@ -629,15 +616,27 @@
     document.getElementById("section-name-input").value = "";
     document.getElementById("section-modal-error").classList.add("hidden");
     document.getElementById("section-modal-success").classList.add("hidden");
+    // Populate teacher dropdown
+    const sel = document.getElementById("section-teacher-select");
+    sel.innerHTML = '<option value="">— Unassigned —</option>' +
+      teachers.map(t => `<option value="${t.id}">${esc(t.name || t.email)}</option>`).join("");
+    sel.value = "";
+    document.getElementById("section-teacher-group").style.display = "";
     document.getElementById("section-modal-backdrop").classList.remove("hidden");
   });
 
-  function openSectionEditModal(id, name) {
-    document.getElementById("section-modal-title").textContent = "Rename Section";
+  function openSectionEditModal(id, name, currentTeacherUid = "") {
+    document.getElementById("section-modal-title").textContent = "Edit Section";
     document.getElementById("section-edit-id").value = id;
     document.getElementById("section-name-input").value = name;
     document.getElementById("section-modal-error").classList.add("hidden");
     document.getElementById("section-modal-success").classList.add("hidden");
+    // Populate and show teacher dropdown
+    const sel = document.getElementById("section-teacher-select");
+    sel.innerHTML = '<option value="">— Unassigned —</option>' +
+      teachers.map(t => `<option value="${t.id}">${esc(t.name || t.email)}</option>`).join("");
+    sel.value = currentTeacherUid || "";
+    document.getElementById("section-teacher-group").style.display = "";
     document.getElementById("section-modal-backdrop").classList.remove("hidden");
   }
 
@@ -659,17 +658,49 @@
     let ok = false;
     if (id) {
       ok = await updateSection(id, { name });
-      if (ok && currentUser) await writeAuditLog(currentUser.uid, currentUser.name || currentUser.email,
-        "rename_section", name, { id });
+      if (ok) {
+        // Handle teacher reassignment
+        const newTeacherUid = document.getElementById("section-teacher-select").value || null;
+        // Remove section from any teacher who currently has it
+        for (const t of teachers) {
+          const had = (t.assigned_sections || []).includes(id);
+          const isNew = t.id === newTeacherUid;
+          if (had && !isNew) {
+            await updateUser(t.id, { assigned_sections: (t.assigned_sections).filter(s => s !== id) });
+          }
+        }
+        // Add section to newly assigned teacher
+        if (newTeacherUid) {
+          const newTeacher = teachers.find(t => t.id === newTeacherUid);
+          const existing = newTeacher ? (newTeacher.assigned_sections || []) : [];
+          if (!existing.includes(id)) {
+            await updateUser(newTeacherUid, { assigned_sections: [...existing, id] });
+          }
+          await updateSection(id, { teacher_uid: newTeacherUid });
+        } else {
+          await updateSection(id, { teacher_uid: null });
+        }
+        if (currentUser) await writeAuditLog(currentUser.uid, currentUser.name || currentUser.email,
+          "edit_section", name, { id });
+      }
     } else {
-      const newId = await addSection({ name });
+      const teacherUid = document.getElementById("section-teacher-select").value || null;
+      const newId = await addSection({ name, teacher_uid: teacherUid || null });
       ok = !!newId;
+      // Also update teacher's assigned_sections list
+      if (ok && teacherUid && newId) {
+        const teacher = teachers.find(t => t.id === teacherUid);
+        const existing = teacher ? (teacher.assigned_sections || []) : [];
+        if (!existing.includes(newId)) {
+          await updateUser(teacherUid, { assigned_sections: [...existing, newId] });
+        }
+      }
       if (ok && currentUser) await writeAuditLog(currentUser.uid, currentUser.name || currentUser.email,
         "add_section", name, {});
     }
     btn.disabled = false; btn.textContent = "Save Section";
     if (ok) {
-      document.getElementById("section-modal-success").textContent = id ? "Section renamed." : "Section added.";
+      document.getElementById("section-modal-success").textContent = id ? "Section updated." : "Section added.";
       document.getElementById("section-modal-success").classList.remove("hidden");
       await loadData(); setTimeout(closeSectionModal, 1000);
     } else {
