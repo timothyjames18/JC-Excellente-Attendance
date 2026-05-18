@@ -328,7 +328,7 @@
 
   document.getElementById("logout-btn").addEventListener("click", logout);
 
-  requireRole("registrar", "principal")
+  requireRole("admin")
     .then(async (user) => {
       currentUser = user;
       document.getElementById("user-name").textContent = user.name || user.email;
