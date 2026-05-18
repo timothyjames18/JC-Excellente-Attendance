@@ -2,7 +2,7 @@
 import { auth, db } from "../../firebase-config.js";
 import {
   collection, doc,
-  getDoc, getDocs, addDoc, updateDoc,
+  getDoc, getDocs, addDoc, updateDoc, setDoc, deleteDoc,
   query, where, orderBy, onSnapshot,
   serverTimestamp
 } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore.js";
@@ -53,7 +53,6 @@ async function getStudentByRFID(rfidCode) {
 /** Fetch all active students. Returns array sorted by last name. */
 async function getStudents() {
   try {
-    // Filter client-side to avoid requiring a composite Firestore index
     const q    = query(collection(db, "students"), where("is_active", "==", true));
     const snap = await getDocs(q);
     const docs = snap.docs.map(d => ({ id: d.id, ...d.data() }));
@@ -127,6 +126,113 @@ async function getSections() {
   }
 }
 
+/** Add a new section. Returns the new document ID or null. */
+async function addSection(data) {
+  try {
+    const ref = await addDoc(collection(db, "sections"), {
+      ...data,
+      is_active: true,
+      created_at: serverTimestamp()
+    });
+    return ref.id;
+  } catch (err) {
+    console.error("addSection error:", err);
+    return null;
+  }
+}
+
+/** Update section fields. Returns true/false. */
+async function updateSection(id, data) {
+  try {
+    await updateDoc(doc(db, "sections", id), {
+      ...data,
+      updated_at: serverTimestamp()
+    });
+    return true;
+  } catch (err) {
+    console.error("updateSection error:", err);
+    return false;
+  }
+}
+
+/** Deactivate a section (soft delete). Returns true/false. */
+async function deactivateSection(id) {
+  return updateSection(id, { is_active: false });
+}
+
+// ─────────────────────────────────────────────────────────────
+// Users / Teachers
+// ─────────────────────────────────────────────────────────────
+
+/** Fetch all users with role=teacher. Returns array sorted by name. */
+async function getTeachers() {
+  try {
+    const q    = query(collection(db, "users"), where("role", "==", "teacher"));
+    const snap = await getDocs(q);
+    const docs = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+    docs.sort((a, b) => (a.name || "").localeCompare(b.name || ""));
+    return docs;
+  } catch (err) {
+    console.error("getTeachers error:", err);
+    return [];
+  }
+}
+
+/** Update user document (e.g. assigned_sections). Returns true/false. */
+async function updateUser(id, data) {
+  try {
+    await updateDoc(doc(db, "users", id), {
+      ...data,
+      updated_at: serverTimestamp()
+    });
+    return true;
+  } catch (err) {
+    console.error("updateUser error:", err);
+    return false;
+  }
+}
+
+/** Fetch a single user document by UID. Returns object or null. */
+async function getUser(uid) {
+  try {
+    const snap = await getDoc(doc(db, "users", uid));
+    if (!snap.exists()) return null;
+    return { id: snap.id, ...snap.data() };
+  } catch (err) {
+    console.error("getUser error:", err);
+    return null;
+  }
+}
+
+// ─────────────────────────────────────────────────────────────
+// Audit Logs
+// ─────────────────────────────────────────────────────────────
+
+/**
+ * Write an audit log entry.
+ * actorUid: UID of the person performing the action
+ * actorName: display name
+ * action: short verb, e.g. "add_student", "edit_student", "deactivate_student", "add_section"
+ * target: human-readable subject, e.g. "Juan dela Cruz (2024-0001)"
+ * details: object with changed fields (before/after if available)
+ */
+async function writeAuditLog(actorUid, actorName, action, target, details = {}) {
+  try {
+    await addDoc(collection(db, "audit_logs"), {
+      actor_uid:   actorUid,
+      actor_name:  actorName,
+      action,
+      target,
+      details,
+      timestamp:   serverTimestamp(),
+      date:        manilaDate(),
+      datetime:    manilaDateTime(),
+    });
+  } catch (err) {
+    console.error("writeAuditLog error:", err);
+  }
+}
+
 // ─────────────────────────────────────────────────────────────
 // Attendance
 // ─────────────────────────────────────────────────────────────
@@ -145,6 +251,7 @@ async function logAttendance(studentData, type) {
       student_id:   studentData.id,
       student_name: `${studentData.first_name} ${studentData.last_name}`,
       section:      studentData.section_name || studentData.section || "No section",
+      section_id:   studentData.section_id || null,
       type,
       scan_time:    scanTime,
       date,
@@ -173,7 +280,6 @@ async function getStudentLogsToday(studentId) {
     );
     const snap = await getDocs(q);
     const logs = snap.docs.map(d => ({ id: d.id, ...d.data() }));
-    // Sort desc by scan_time client-side (avoids needing a composite index)
     logs.sort((a, b) => b.scan_time.localeCompare(a.scan_time));
     return logs;
   } catch (err) {
@@ -218,7 +324,6 @@ async function getAttendanceByRange(dateFrom, dateTo, sectionFilter) {
     if (sectionFilter) {
       logs = logs.filter(l => l.section === sectionFilter);
     }
-    // Sort by date asc, then scan_time asc client-side
     logs.sort((a, b) => a.date.localeCompare(b.date) || a.scan_time.localeCompare(b.scan_time));
     return logs;
   } catch (err) {
@@ -228,15 +333,24 @@ async function getAttendanceByRange(dateFrom, dateTo, sectionFilter) {
 }
 
 /**
- * Real-time listener for attendance on a specific date.
+ * Real-time listener for attendance on a specific date, optionally filtered by section_id.
  * Calls callback(logs) every time data changes.
  * Returns the unsubscribe function.
  */
-function watchAttendanceByDate(date, callback) {
-  const q = query(
-    collection(db, "attendance_logs"),
-    where("date", "==", date)
-  );
+function watchAttendanceByDate(date, callback, sectionId = null) {
+  let q;
+  if (sectionId) {
+    q = query(
+      collection(db, "attendance_logs"),
+      where("date", "==", date),
+      where("section_id", "==", sectionId)
+    );
+  } else {
+    q = query(
+      collection(db, "attendance_logs"),
+      where("date", "==", date)
+    );
+  }
   return onSnapshot(q, (snap) => {
     const logs = snap.docs.map(d => ({ id: d.id, ...d.data() }));
     logs.sort((a, b) => a.scan_time.localeCompare(b.scan_time));
@@ -251,7 +365,11 @@ export {
   getStudent, getStudentByRFID, getStudents, getAllStudents,
   addStudent, updateStudent, deactivateStudent,
   // sections
-  getSections,
+  getSections, addSection, updateSection, deactivateSection,
+  // users/teachers
+  getTeachers, updateUser, getUser,
+  // audit logs
+  writeAuditLog,
   // attendance
   logAttendance, getStudentLogsToday,
   getAttendanceByDate, getAttendanceByRange, watchAttendanceByDate,

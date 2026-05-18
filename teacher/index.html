@@ -3,12 +3,11 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Attendance — JCExcellente</title>
+  <title>Attendance — JCExcellente Teacher</title>
   <link rel="stylesheet" href="../assets/css/style.css" />
 </head>
 <body>
 
-<!-- Header -->
 <header class="site-header">
   <div class="header-inner">
     <a class="header-brand" href="../index.html">
@@ -27,20 +26,27 @@
 
 <div class="container page-wrap">
   <div class="page-title">Attendance Log</div>
-  <div class="page-sub">Real-time attendance records. Updates automatically.</div>
+  <div class="page-sub">Real-time attendance records for your assigned sections.</div>
 
-  <!-- Date picker -->
-  <div class="filter-bar mb-4">
-    <div class="form-group">
+  <!-- Filter bar -->
+  <div class="filter-bar mb-4" style="flex-wrap:wrap;gap:12px;align-items:flex-end;">
+    <div class="form-group" style="margin:0;">
+      <label class="form-label" for="section-picker">Section</label>
+      <select id="section-picker" class="form-control" style="min-width:180px;">
+        <option value="">Show all my sections</option>
+      </select>
+    </div>
+    <div class="form-group" style="margin:0;">
       <label class="form-label" for="date-picker">Date</label>
       <input type="date" id="date-picker" class="form-control" />
     </div>
-    <div style="align-self:flex-end;">
-      <div id="live-badge" class="badge badge-green">● Live</div>
+    <div style="display:flex;align-items:flex-end;gap:8px;">
+      <div id="live-badge" class="badge badge-green">&#9679; Live</div>
+      <button class="btn btn-outline btn-sm" id="export-btn">&#8595; Export CSV</button>
     </div>
   </div>
 
-  <!-- Summary mini-stats -->
+  <!-- Summary stats -->
   <div class="stat-grid mb-4" id="summary-stats">
     <div class="stat-card">
       <div class="stat-value" id="stat-total">—</div>
@@ -61,12 +67,8 @@
     <table id="att-table">
       <thead>
         <tr>
-          <th>#</th>
-          <th>Student Name</th>
-          <th>Section</th>
-          <th>Time In</th>
-          <th>Time Out</th>
-          <th>Status</th>
+          <th>#</th><th>Student Name</th><th>Section</th>
+          <th>Time In</th><th>Time Out</th><th>Status</th>
         </tr>
       </thead>
       <tbody id="att-body">
@@ -79,84 +81,117 @@
 </div>
 
 <script type="module">
-  import { requireRole, logout }          from "../assets/js/auth.js";
-  import { watchAttendanceByDate, manilaDate } from "../assets/js/firestore.js";
+  import { requireRole, logout }               from "../assets/js/auth.js";
+  import { watchAttendanceByDate, getSections, getUser, manilaDate } from "../assets/js/firestore.js";
 
-  let unsub = null; // unsubscribe function for current listener
+  let unsub           = null;
+  let assignedSections = [];  // section IDs this teacher owns
+  let allSections      = [];  // full section objects
+  let currentRows      = [];  // for CSV export
 
   document.getElementById("logout-btn").addEventListener("click", logout);
 
-  // Set date picker default to today (Manila)
-  const datePicker = document.getElementById("date-picker");
+  const datePicker    = document.getElementById("date-picker");
+  const sectionPicker = document.getElementById("section-picker");
   datePicker.value = manilaDate();
 
   requireRole("teacher", "principal")
-    .then((user) => {
+    .then(async (user) => {
       document.getElementById("user-name").textContent = user.name || user.email;
-      loadDate(datePicker.value);
+
+      // Load the teacher's own user doc to get assigned_sections
+      const userDoc = await getUser(user.uid);
+      assignedSections = (userDoc && userDoc.assigned_sections) ? userDoc.assigned_sections : [];
+
+      // Load all sections
+      allSections = await getSections();
+
+      // Populate section picker with only teacher's sections
+      const mySections = assignedSections.length
+        ? allSections.filter(s => assignedSections.includes(s.id))
+        : allSections; // principal or no-restriction: show all
+
+      mySections.forEach(s => {
+        const o = document.createElement("option");
+        o.value = s.id; o.textContent = s.name;
+        sectionPicker.appendChild(o);
+      });
+
+      loadData();
     })
     .catch(() => {});
 
   datePicker.addEventListener("change", () => {
     const isToday = datePicker.value === manilaDate();
     document.getElementById("live-badge").style.display = isToday ? "" : "none";
-    loadDate(datePicker.value);
+    loadData();
   });
 
-  function loadDate(date) {
+  sectionPicker.addEventListener("change", loadData);
+
+  function loadData() {
     if (unsub) { unsub(); unsub = null; }
+
+    const date      = datePicker.value;
+    const sectionId = sectionPicker.value || null;
+
+    // If teacher has assigned sections and "show all" is selected,
+    // we can't do a single real-time query across multiple section_ids cleanly.
+    // Use null sectionId and client-filter if needed.
+    const querySection = sectionId;
 
     const tbody = document.getElementById("att-body");
     tbody.innerHTML = `<tr><td colspan="6" class="text-center" style="padding:24px;color:var(--muted);">
       <div class="spinner"></div>Loading…
     </td></tr>`;
 
-    unsub = watchAttendanceByDate(date, renderLogs);
+    unsub = watchAttendanceByDate(date, (logs) => {
+      // Client-side filter: if teacher has assigned sections and no specific one selected,
+      // only show logs belonging to their sections
+      let filtered = logs;
+      if (!querySection && assignedSections.length > 0) {
+        filtered = logs.filter(l => !l.section_id || assignedSections.includes(l.section_id));
+      }
+      renderLogs(filtered);
+    }, querySection);
   }
 
   function renderLogs(logs) {
-    // Build per-student consolidated rows
-    // logs is flat (each scan = one log); we pivot to one row per student
-    const map = new Map(); // studentId → {name, section, timeIn, timeOut}
-
+    const map = new Map();
     logs.forEach(log => {
       if (!map.has(log.student_id)) {
-        map.set(log.student_id, {
-          name:    log.student_name,
-          section: log.section,
-          timeIn:  null,
-          timeOut: null,
-        });
+        map.set(log.student_id, { name: log.student_name, section: log.section, timeIn: null, timeOut: null });
       }
       const row = map.get(log.student_id);
       if (log.type === "time_in"  && (!row.timeIn  || log.scan_time < row.timeIn))  row.timeIn  = log.scan_time;
       if (log.type === "time_out" && (!row.timeOut || log.scan_time > row.timeOut)) row.timeOut = log.scan_time;
     });
 
-    const rows   = [...map.values()];
-    const tbody  = document.getElementById("att-body");
-    const inCnt  = rows.filter(r => r.timeIn).length;
-    const outCnt = rows.filter(r => r.timeOut).length;
+    const rows  = [...map.values()];
+    const inCnt = rows.filter(r => r.timeIn).length;
+    const outCnt= rows.filter(r => r.timeOut).length;
 
     document.getElementById("stat-total").textContent = rows.length;
     document.getElementById("stat-in").textContent    = inCnt;
     document.getElementById("stat-out").textContent   = outCnt;
+    currentRows = rows;
 
+    const tbody = document.getElementById("att-body");
     if (rows.length === 0) {
       tbody.innerHTML = `<tr><td colspan="6" class="text-center"
         style="padding:32px;color:var(--muted);">No attendance records for this date.</td></tr>`;
       return;
     }
 
-    // Sort by first time_in
     rows.sort((a, b) => (a.timeIn || "z").localeCompare(b.timeIn || "z"));
 
     tbody.innerHTML = rows.map((row, i) => {
-      const hasOut   = !!row.timeOut;
-      const status   = hasOut ? '<span class="badge badge-amber">Left</span>'
-                               : '<span class="badge badge-green">Present</span>';
-      const timeIn   = row.timeIn  ? fmtTime(row.timeIn)  : '<span class="badge badge-gray">—</span>';
-      const timeOut  = row.timeOut ? fmtTime(row.timeOut) : '<span class="badge badge-gray">—</span>';
+      const hasOut  = !!row.timeOut;
+      const status  = hasOut
+        ? '<span class="badge badge-amber">Left</span>'
+        : '<span class="badge badge-green">Present</span>';
+      const timeIn  = row.timeIn  ? fmtTime(row.timeIn)  : '<span class="badge badge-gray">—</span>';
+      const timeOut = row.timeOut ? fmtTime(row.timeOut) : '<span class="badge badge-gray">—</span>';
       return `<tr>
         <td style="color:var(--muted);font-size:.8rem;">${i + 1}</td>
         <td style="font-weight:600;">${esc(row.name)}</td>
@@ -168,8 +203,35 @@
     }).join("");
   }
 
+  // ── CSV Export
+  document.getElementById("export-btn").addEventListener("click", () => {
+    if (currentRows.length === 0) {
+      alert("No data to export."); return;
+    }
+    const date    = datePicker.value;
+    const secId   = sectionPicker.value;
+    const secName = secId
+      ? (allSections.find(s => s.id === secId) || {}).name || secId
+      : "all-sections";
+
+    const header  = ["Student Name", "Section", "Time In", "Time Out", "Status"];
+    const csvRows = [header, ...currentRows.map(row => [
+      row.name, row.section,
+      row.timeIn  ? fmtTime(row.timeIn)  : "",
+      row.timeOut ? fmtTime(row.timeOut) : "",
+      row.timeOut ? "Left" : "Present",
+    ])];
+    const csv   = csvRows.map(r => r.map(cell => `"${String(cell).replace(/"/g,'""')}"`).join(",")).join("\n");
+    const blob  = new Blob([csv], { type: "text/csv" });
+    const url   = URL.createObjectURL(blob);
+    const a     = document.createElement("a");
+    a.href      = url;
+    a.download  = `attendance_${secName.replace(/\s+/g,'-')}_${date}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+  });
+
   function fmtTime(dt) {
-    // dt is "YYYY-MM-DD HH:mm:ss" Manila time
     const [, timePart] = dt.split(" ");
     const [h, m]       = timePart.split(":").map(Number);
     const ampm         = h >= 12 ? "PM" : "AM";
@@ -179,8 +241,7 @@
 
   function esc(s) {
     const d = document.createElement("div");
-    d.textContent = s || "";
-    return d.innerHTML;
+    d.textContent = s || ""; return d.innerHTML;
   }
 </script>
 </body>
