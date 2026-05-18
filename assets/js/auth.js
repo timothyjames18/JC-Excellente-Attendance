@@ -2,13 +2,10 @@
 import { auth, db, app as primaryApp } from "../../firebase-config.js";
 import {
   signInWithEmailAndPassword,
-  createUserWithEmailAndPassword,
   signOut,
-  onAuthStateChanged as _onAuthChanged,
-  getAuth
+  onAuthStateChanged as _onAuthChanged
 } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-auth.js";
 import { doc, getDoc, setDoc } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore.js";
-import { initializeApp, getApps, getApp } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-app.js";
 
 // ─────────────────────────────────────────────────────────────
 // Role → dashboard path map
@@ -72,25 +69,32 @@ async function login(email, password) {
 // and write their Firestore user document.
 // ─────────────────────────────────────────────────────────────
 async function createTeacherAccount(name, email, password) {
-  // Use a secondary Firebase app so the registrar's auth session is NEVER
-  // disturbed. createUserWithEmailAndPassword on the primary app immediately
-  // signs in as the new teacher and fires onAuthStateChanged, causing the
-  // registrar page to redirect to login before the operation completes.
-  let secondaryApp;
+  // Use the Firebase Auth REST API so the registrar's SDK auth session is
+  // NEVER touched. The SDK's createUserWithEmailAndPassword immediately signs
+  // in as the new user and fires onAuthStateChanged, redirecting the registrar
+  // page to login before the operation finishes.
+  const API_KEY = primaryApp.options.apiKey;
   try {
-    const existingApps = getApps();
-    const existing = existingApps.find(a => a.name === "secondary");
-    secondaryApp = existing || initializeApp(primaryApp.options, "secondary");
-  } catch (_) {
-    secondaryApp = getApp("secondary");
-  }
+    // 1. Create the Auth account via REST — does not affect current session
+    const signUpRes = await fetch(
+      `https://identitytoolkit.googleapis.com/v1/accounts:signUp?key=${API_KEY}`,
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email, password, returnSecureToken: false }),
+      }
+    );
+    const signUpData = await signUpRes.json();
+    if (!signUpRes.ok) {
+      const code = signUpData?.error?.message || "";
+      if (code.includes("EMAIL_EXISTS"))        return { ok: false, error: "That email address is already registered." };
+      if (code.includes("INVALID_EMAIL"))       return { ok: false, error: "Invalid email address." };
+      if (code.includes("WEAK_PASSWORD"))       return { ok: false, error: "Password must be at least 6 characters." };
+      return { ok: false, error: "Failed to create account. (" + code + ")" };
+    }
+    const uid = signUpData.localId;
 
-  try {
-    const secondaryAuth = getAuth(secondaryApp);
-    const cred = await createUserWithEmailAndPassword(secondaryAuth, email, password);
-    const uid  = cred.user.uid;
-
-    // Write Firestore profile using primary db — registrar's session stays intact
+    // 2. Write the Firestore user profile (registrar is still signed in — this works)
     await setDoc(doc(db, "users", uid), {
       name,
       email,
@@ -99,19 +103,10 @@ async function createTeacherAccount(name, email, password) {
       created_at: new Date().toISOString(),
     });
 
-    // Sign out only the secondary app's session
-    await signOut(secondaryAuth);
     return { ok: true, uid };
   } catch (err) {
-    let msg = "Failed to create account.";
-    if (err.code === "auth/email-already-in-use") {
-      msg = "That email address is already registered.";
-    } else if (err.code === "auth/invalid-email") {
-      msg = "Invalid email address.";
-    } else if (err.code === "auth/weak-password") {
-      msg = "Password must be at least 6 characters.";
-    }
-    return { ok: false, error: msg };
+    console.error("createTeacherAccount error:", err);
+    return { ok: false, error: "Failed to create account. Please try again." };
   }
 }
 
