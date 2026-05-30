@@ -1,314 +1,431 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Registrar Panel — JCExcellente</title>
-  <link rel="stylesheet" href="../assets/css/style.css" />
-  <script src="https://cdn.jsdelivr.net/npm/qrcodejs@1.0.0/qrcode.min.js"></script>
-  <style>
-    .qr-thumb canvas, .qr-thumb img { width:52px!important; height:52px!important; border:1px solid #ddd; border-radius:4px; }
-    #modal-qr-img { display:flex; justify-content:center; margin:8px 0; }
-    #modal-qr-img canvas, #modal-qr-img img { width:150px!important; height:150px!important; }
-    .tab-bar { display:flex; gap:4px; border-bottom:2px solid var(--border); margin-bottom:1.5rem; }
-    .tab-btn { padding:8px 18px; border:none; background:none; cursor:pointer; font-size:.9rem;
-      color:var(--muted); border-bottom:2px solid transparent; margin-bottom:-2px; transition:.15s; }
-    .tab-btn.active { color:var(--primary); border-bottom-color:var(--primary); font-weight:600; }
-    .tab-btn:hover:not(.active) { color:var(--text); }
-    .tab-panel { display:none; }
-    .tab-panel.active { display:block; }
-    .section-checkbox-list { display:grid; grid-template-columns:repeat(auto-fill,minmax(180px,1fr)); gap:8px; max-height:260px; overflow-y:auto; padding:4px; }
-    .section-checkbox-list label { display:flex; align-items:center; gap:8px; font-size:.87rem; cursor:pointer; padding:5px 8px; border-radius:6px; border:1px solid var(--border); }
-    .section-checkbox-list label:hover { background:var(--surface); }
-    .section-checkbox-list input[type=checkbox] { accent-color:var(--primary); width:16px; height:16px; }
-    .teacher-pill { font-size:.75rem; background:var(--surface); border:1px solid var(--border); padding:2px 8px; border-radius:12px; }
-    @media print {
-      .site-header, .toolbar, .page-title, .page-sub,
-      .modal-backdrop, thead th:last-child, tbody td:last-child,
-      .tab-bar, .filter-bar { display:none!important; }
-      body { background:#fff; }
-      .table-wrap { overflow:visible; box-shadow:none; }
-      table { width:100%; border-collapse:collapse; }
-      td, th { border:1px solid #ccc; padding:6px 10px; font-size:.8rem; vertical-align:middle; }
-      .qr-thumb canvas, .qr-thumb img { width:70px!important; height:70px!important; }
-    }
-  </style>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Registrar Panel — JCExcellente</title>
+    <link rel="stylesheet" href="../assets/css/style.css" />
+    <script src="https://cdn.jsdelivr.net/npm/qrcodejs@1.0.0/qrcode.min.js"></script>
+    <style>
+        .qr-thumb canvas, .qr-thumb img {
+            width: 52px !important;
+            height: 52px !important;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+        }
+
+        #modal-qr-img {
+            display: flex;
+            justify-content: center;
+            margin: 8px 0;
+        }
+
+            #modal-qr-img canvas, #modal-qr-img img {
+                width: 150px !important;
+                height: 150px !important;
+            }
+
+        .tab-bar {
+            display: flex;
+            gap: 4px;
+            border-bottom: 2px solid var(--border);
+            margin-bottom: 1.5rem;
+        }
+
+        .tab-btn {
+            padding: 8px 18px;
+            border: none;
+            background: none;
+            cursor: pointer;
+            font-size: .9rem;
+            color: var(--muted);
+            border-bottom: 2px solid transparent;
+            margin-bottom: -2px;
+            transition: .15s;
+        }
+
+            .tab-btn.active {
+                color: var(--primary);
+                border-bottom-color: var(--primary);
+                font-weight: 600;
+            }
+
+            .tab-btn:hover:not(.active) {
+                color: var(--text);
+            }
+
+        .tab-panel {
+            display: none;
+        }
+
+            .tab-panel.active {
+                display: block;
+            }
+
+        .section-checkbox-list {
+            display: grid;
+            grid-template-columns: repeat(auto-fill,minmax(180px,1fr));
+            gap: 8px;
+            max-height: 260px;
+            overflow-y: auto;
+            padding: 4px;
+        }
+
+            .section-checkbox-list label {
+                display: flex;
+                align-items: center;
+                gap: 8px;
+                font-size: .87rem;
+                cursor: pointer;
+                padding: 5px 8px;
+                border-radius: 6px;
+                border: 1px solid var(--border);
+            }
+
+                .section-checkbox-list label:hover {
+                    background: var(--surface);
+                }
+
+            .section-checkbox-list input[type=checkbox] {
+                accent-color: var(--primary);
+                width: 16px;
+                height: 16px;
+            }
+
+        .teacher-pill {
+            font-size: .75rem;
+            background: var(--surface);
+            border: 1px solid var(--border);
+            padding: 2px 8px;
+            border-radius: 12px;
+        }
+
+        @media print {
+            .site-header, .toolbar, .page-title, .page-sub,
+            .modal-backdrop, thead th:last-child, tbody td:last-child,
+            .tab-bar, .filter-bar {
+                display: none !important;
+            }
+
+            body {
+                background: #fff;
+            }
+
+            .table-wrap {
+                overflow: visible;
+                box-shadow: none;
+            }
+
+            table {
+                width: 100%;
+                border-collapse: collapse;
+            }
+
+            td, th {
+                border: 1px solid #ccc;
+                padding: 6px 10px;
+                font-size: .8rem;
+                vertical-align: middle;
+            }
+
+            .qr-thumb canvas, .qr-thumb img {
+                width: 70px !important;
+                height: 70px !important;
+            }
+        }
+    </style>
 </head>
 <body>
 
-<header class="site-header">
-  <div class="header-inner">
-    <a class="header-brand" href="../index.html">
-      <img src="../assets/images/logo.png" alt="Logo" />
-      <div>
-        <div class="school-name">JCExcellente Christian Academy</div>
-        <div class="sys-name">Registrar Panel</div>
-      </div>
-    </a>
-    <div class="nav-user">
-      <span id="user-name"></span>
-      <button class="btn-logout" id="logout-btn">Sign Out</button>
-    </div>
-  </div>
-</header>
-
-<div class="container page-wrap">
-  <div class="page-title">Registrar Panel</div>
-  <div class="page-sub">Manage students, sections, and teacher assignments.</div>
-
-  <div class="tab-bar">
-    <button class="tab-btn active" data-tab="students">Students</button>
-    <button class="tab-btn" data-tab="sections">Manage Sections</button>
-    <button class="tab-btn" data-tab="teachers">Teachers</button>
-  </div>
-
-  <!-- TAB: STUDENTS -->
-  <div id="tab-students" class="tab-panel active">
-    <div class="toolbar mb-4" style="flex-wrap:wrap;gap:8px;">
-      <input type="search" id="search-box" class="form-control search-input" placeholder="Search by name or student ID…" />
-      <select id="section-filter-students" class="form-control" style="max-width:200px;">
-        <option value="">All Sections</option>
-      </select>
-      <button class="btn btn-outline btn-sm" onclick="window.print()">&#128424; Print QR Codes</button>
-      <button class="btn btn-primary btn-sm" id="add-btn">+ Add Student</button>
-    </div>
-    <div class="table-wrap">
-      <table>
-        <thead>
-          <tr>
-            <th>QR Code</th><th>Student ID</th><th>Full Name</th><th>Section</th>
-            <th>Parent Email</th><th>Parent Phone</th><th>RFID UID</th><th>Status</th><th>Actions</th>
-          </tr>
-        </thead>
-        <tbody id="student-body">
-          <tr><td colspan="9" class="text-center" style="padding:32px;color:var(--muted);">
-            <div class="spinner"></div>Loading students…
-          </td></tr>
-        </tbody>
-      </table>
-    </div>
-  </div>
-
-  <!-- TAB: TEACHERS -->
-  <div id="tab-teachers" class="tab-panel">
-    <div class="toolbar mb-4">
-      <button class="btn btn-primary btn-sm" id="add-teacher-btn">+ Add Teacher Account</button>
-    </div>
-    <div class="table-wrap">
-      <table>
-        <thead>
-          <tr><th>Name</th><th>Email</th><th>Assigned Sections</th><th>Actions</th></tr>
-        </thead>
-        <tbody id="teacher-body">
-          <tr><td colspan="4" class="text-center" style="padding:32px;color:var(--muted);">
-            <div class="spinner"></div>Loading teachers…
-          </td></tr>
-        </tbody>
-      </table>
-    </div>
-  </div>
-
-  <!-- TAB: SECTIONS -->
-  <div id="tab-sections" class="tab-panel">
-    <div class="toolbar mb-4">
-      <button class="btn btn-primary btn-sm" id="add-section-btn">+ Add Section</button>
-    </div>
-    <div class="table-wrap">
-      <table>
-        <thead>
-          <tr><th>Section Name</th><th>Assigned Teacher</th><th>Students</th><th>Status</th><th>Actions</th></tr>
-        </thead>
-        <tbody id="section-body">
-          <tr><td colspan="5" class="text-center" style="padding:32px;color:var(--muted);">
-            <div class="spinner"></div>Loading sections…
-          </td></tr>
-        </tbody>
-      </table>
-    </div>
-  </div>
-
-</div>
-
-<!-- STUDENT: Add/Edit Modal -->
-<div class="modal-backdrop hidden" id="modal-backdrop">
-  <div class="modal" role="dialog" aria-modal="true" aria-labelledby="modal-title-text">
-    <div class="modal-header">
-      <div class="modal-title" id="modal-title-text">Add Student</div>
-      <button class="modal-close" id="modal-close" aria-label="Close">&#10005;</button>
-    </div>
-    <div class="modal-body">
-      <div id="modal-error" class="alert alert-error hidden"></div>
-      <div id="modal-success" class="alert alert-success hidden"></div>
-      <input type="hidden" id="edit-id" />
-      <div class="flex gap-4">
-        <div class="form-group w-full">
-          <label class="form-label" for="f-first">First Name *</label>
-          <input type="text" id="f-first" class="form-control" required />
+    <header class="site-header">
+        <div class="header-inner">
+            <a class="header-brand" href="../index.html">
+                <img src="../assets/images/logo.png" alt="Logo" />
+                <div>
+                    <div class="school-name">JCExcellente Christian Academy</div>
+                    <div class="sys-name">Registrar Panel</div>
+                </div>
+            </a>
+            <div class="nav-user">
+                <span id="user-name"></span>
+                <button class="btn-logout" id="logout-btn">Sign Out</button>
+            </div>
         </div>
-        <div class="form-group w-full">
-          <label class="form-label" for="f-last">Last Name *</label>
-          <input type="text" id="f-last" class="form-control" required />
+    </header>
+
+    <div class="container page-wrap">
+        <div class="page-title">Registrar Panel</div>
+        <div class="page-sub">Manage students, sections, and teacher assignments.</div>
+
+        <div class="tab-bar">
+            <button class="tab-btn active" data-tab="students">Students</button>
+            <button class="tab-btn" data-tab="sections">Manage Sections</button>
+            <button class="tab-btn" data-tab="teachers">Teachers</button>
         </div>
-      </div>
-      <div class="form-group">
-        <label class="form-label" for="f-sid">Student ID *</label>
-        <input type="text" id="f-sid" class="form-control" required placeholder="e.g. 2024-0001" />
-      </div>
-      <div class="form-group">
-        <label class="form-label" for="f-section">Section *</label>
-        <select id="f-section" class="form-control" required>
-          <option value="">— Select section —</option>
-        </select>
-      </div>
-      <div class="form-group">
-        <label class="form-label" for="f-email">Parent Email</label>
-        <input type="email" id="f-email" class="form-control" placeholder="parent@email.com" />
-      </div>
-      <div class="form-group">
-        <label class="form-label" for="f-phone">Parent Phone</label>
-        <input type="tel" id="f-phone" class="form-control" placeholder="09171234567" />
-      </div>
-      <div class="form-group">
-        <label class="form-label" for="f-rfid">RFID Card UID</label>
-        <input type="text" id="f-rfid" class="form-control" placeholder="e.g. A3F2B1C0" autocomplete="off" />
-        <small style="color:var(--muted);font-size:.75rem;">Tap card on reader while this field is focused, or type manually.</small>
-      </div>
-      <div class="form-group" id="qr-group" style="display:none;">
-        <label class="form-label">QR Code</label>
-        <div id="modal-qr-img"></div>
-        <code id="f-qr" style="font-size:.75rem;word-break:break-all;color:var(--muted);display:block;margin-top:6px;text-align:center;"></code>
-      </div>
-    </div>
-    <div class="modal-footer">
-      <button class="btn btn-outline" id="cancel-btn">Cancel</button>
-      <button class="btn btn-primary" id="save-btn">Save Student</button>
-    </div>
-  </div>
-</div>
 
-<!-- STUDENT: Deactivate Confirm -->
-<div class="modal-backdrop hidden" id="deactivate-backdrop">
-  <div class="modal" style="max-width:380px;">
-    <div class="modal-header"><div class="modal-title">Deactivate Student?</div></div>
-    <div class="modal-body">
-      <p style="font-size:.9rem;">Are you sure you want to deactivate <strong id="deactivate-name"></strong>?
-      Their QR code will no longer be accepted at the scanner.</p>
-    </div>
-    <div class="modal-footer">
-      <button class="btn btn-outline" id="deactivate-cancel">Cancel</button>
-      <button class="btn btn-danger" id="deactivate-confirm">Deactivate</button>
-    </div>
-  </div>
-</div>
+        <!-- TAB: STUDENTS -->
+        <div id="tab-students" class="tab-panel active">
+            <div class="toolbar mb-4" style="flex-wrap:wrap;gap:8px;">
+                <input type="search" id="search-box" class="form-control search-input" placeholder="Search by name or student ID…" />
+                <select id="section-filter-students" class="form-control" style="max-width:200px;">
+                    <option value="">All Sections</option>
+                </select>
+                <button class="btn btn-outline btn-sm" onclick="window.open('qr-print.html','_blank')">&#128424; Print QR Codes</button>
+                <button class="btn btn-primary btn-sm" id="add-btn">+ Add Student</button>
+            </div>
+            <div class="table-wrap">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>QR Code</th>
+                            <th>Student ID</th>
+                            <th>Full Name</th>
+                            <th>Section</th>
+                            <th>Parent Email</th>
+                            <th>Parent Phone</th>
+                            <th>RFID UID</th>
+                            <th>Status</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody id="student-body">
+                        <tr>
+                            <td colspan="9" class="text-center" style="padding:32px;color:var(--muted);">
+                                <div class="spinner"></div>Loading students…
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
 
-<!-- SECTION: Add/Edit Modal -->
-<div class="modal-backdrop hidden" id="section-modal-backdrop">
-  <div class="modal" style="max-width:420px;" role="dialog" aria-modal="true">
-    <div class="modal-header">
-      <div class="modal-title" id="section-modal-title">Add Section</div>
-      <button class="modal-close" id="section-modal-close" aria-label="Close">&#10005;</button>
-    </div>
-    <div class="modal-body">
-      <div id="section-modal-error" class="alert alert-error hidden"></div>
-      <div id="section-modal-success" class="alert alert-success hidden"></div>
-      <input type="hidden" id="section-edit-id" />
-      <div class="form-group">
-        <label class="form-label" for="section-name-input">Section Name *</label>
-        <input type="text" id="section-name-input" class="form-control" required placeholder="e.g. Grade 7 — Mabini" />
-      </div>
-      <div class="form-group" id="section-teacher-group">
-        <label class="form-label" for="section-teacher-select">Assign Teacher</label>
-        <select id="section-teacher-select" class="form-control">
-          <option value="">— Unassigned —</option>
-        </select>
-      </div>
-    </div>
-    <div class="modal-footer">
-      <button class="btn btn-outline" id="section-cancel-btn">Cancel</button>
-      <button class="btn btn-primary" id="section-save-btn">Save Section</button>
-    </div>
-  </div>
-</div>
+        <!-- TAB: TEACHERS -->
+        <div id="tab-teachers" class="tab-panel">
+            <div class="toolbar mb-4">
+                <button class="btn btn-primary btn-sm" id="add-teacher-btn">+ Add Teacher Account</button>
+            </div>
+            <div class="table-wrap">
+                <table>
+                    <thead>
+                        <tr><th>Name</th><th>Email</th><th>Assigned Sections</th><th>Actions</th></tr>
+                    </thead>
+                    <tbody id="teacher-body">
+                        <tr>
+                            <td colspan="4" class="text-center" style="padding:32px;color:var(--muted);">
+                                <div class="spinner"></div>Loading teachers…
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
 
-<!-- SECTION: Deactivate Confirm -->
-<div class="modal-backdrop hidden" id="section-deactivate-backdrop">
-  <div class="modal" style="max-width:380px;">
-    <div class="modal-header"><div class="modal-title">Deactivate Section?</div></div>
-    <div class="modal-body">
-      <p style="font-size:.9rem;">Are you sure you want to deactivate <strong id="section-deactivate-name"></strong>?
-      Students in this section will remain but the section will be hidden from new assignments.</p>
-      <p id="section-enrolled-warn" class="hidden" style="font-size:.85rem;color:var(--danger);margin-top:8px;">
-        &#9888; This section currently has enrolled students.
-      </p>
-    </div>
-    <div class="modal-footer">
-      <button class="btn btn-outline" id="section-deactivate-cancel">Cancel</button>
-      <button class="btn btn-danger" id="section-deactivate-confirm">Deactivate</button>
-    </div>
-  </div>
-</div>
+        <!-- TAB: SECTIONS -->
+        <div id="tab-sections" class="tab-panel">
+            <div class="toolbar mb-4">
+                <button class="btn btn-primary btn-sm" id="add-section-btn">+ Add Section</button>
+            </div>
+            <div class="table-wrap">
+                <table>
+                    <thead>
+                        <tr><th>Section Name</th><th>Assigned Teacher</th><th>Students</th><th>Status</th><th>Actions</th></tr>
+                    </thead>
+                    <tbody id="section-body">
+                        <tr>
+                            <td colspan="5" class="text-center" style="padding:32px;color:var(--muted);">
+                                <div class="spinner"></div>Loading sections…
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
 
-<!-- TEACHER: Assign Sections Modal -->
-<div class="modal-backdrop hidden" id="teacher-modal-backdrop">
-  <div class="modal" style="max-width:500px;" role="dialog" aria-modal="true">
-    <div class="modal-header">
-      <div class="modal-title">Assign Sections</div>
-      <button class="modal-close" id="teacher-modal-close" aria-label="Close">&#10005;</button>
     </div>
-    <div class="modal-body">
-      <div id="teacher-modal-error" class="alert alert-error hidden"></div>
-      <div id="teacher-modal-success" class="alert alert-success hidden"></div>
-      <p style="font-size:.88rem;color:var(--muted);margin-bottom:12px;">
-        Assigning sections to <strong id="teacher-modal-name"></strong>
-      </p>
-      <input type="hidden" id="teacher-edit-uid" />
-      <div id="teacher-section-checkboxes" class="section-checkbox-list"></div>
-    </div>
-    <div class="modal-footer">
-      <button class="btn btn-outline" id="teacher-cancel-btn">Cancel</button>
-      <button class="btn btn-primary" id="teacher-save-btn">Save Assignments</button>
-    </div>
-  </div>
-</div>
 
-<!-- TEACHER: Create Account Modal -->
-<div class="modal-backdrop hidden" id="create-teacher-backdrop">
-  <div class="modal" style="max-width:440px;" role="dialog" aria-modal="true">
-    <div class="modal-header">
-      <div class="modal-title">Add Teacher Account</div>
-      <button class="modal-close" id="create-teacher-close" aria-label="Close">&#10005;</button>
+    <!-- STUDENT: Add/Edit Modal -->
+    <div class="modal-backdrop hidden" id="modal-backdrop">
+        <div class="modal" role="dialog" aria-modal="true" aria-labelledby="modal-title-text">
+            <div class="modal-header">
+                <div class="modal-title" id="modal-title-text">Add Student</div>
+                <button class="modal-close" id="modal-close" aria-label="Close">&#10005;</button>
+            </div>
+            <div class="modal-body">
+                <div id="modal-error" class="alert alert-error hidden"></div>
+                <div id="modal-success" class="alert alert-success hidden"></div>
+                <input type="hidden" id="edit-id" />
+                <div class="flex gap-4">
+                    <div class="form-group w-full">
+                        <label class="form-label" for="f-first">First Name *</label>
+                        <input type="text" id="f-first" class="form-control" required />
+                    </div>
+                    <div class="form-group w-full">
+                        <label class="form-label" for="f-last">Last Name *</label>
+                        <input type="text" id="f-last" class="form-control" required />
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label class="form-label" for="f-sid">Student ID *</label>
+                    <input type="text" id="f-sid" class="form-control" required placeholder="e.g. 2024-0001" />
+                </div>
+                <div class="form-group">
+                    <label class="form-label" for="f-section">Section *</label>
+                    <select id="f-section" class="form-control" required>
+                        <option value="">— Select section —</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label class="form-label" for="f-email">Parent Email</label>
+                    <input type="email" id="f-email" class="form-control" placeholder="parent@email.com" />
+                </div>
+                <div class="form-group">
+                    <label class="form-label" for="f-phone">Parent Phone</label>
+                    <input type="tel" id="f-phone" class="form-control" placeholder="09171234567" />
+                </div>
+                <div class="form-group">
+                    <label class="form-label" for="f-rfid">RFID Card UID</label>
+                    <input type="text" id="f-rfid" class="form-control" placeholder="e.g. A3F2B1C0" autocomplete="off" />
+                    <small style="color:var(--muted);font-size:.75rem;">Tap card on reader while this field is focused, or type manually.</small>
+                </div>
+                <div class="form-group" id="qr-group" style="display:none;">
+                    <label class="form-label">QR Code</label>
+                    <div id="modal-qr-img"></div>
+                    <code id="f-qr" style="font-size:.75rem;word-break:break-all;color:var(--muted);display:block;margin-top:6px;text-align:center;"></code>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-outline" id="cancel-btn">Cancel</button>
+                <button class="btn btn-primary" id="save-btn">Save Student</button>
+            </div>
+        </div>
     </div>
-    <div class="modal-body">
-      <div id="create-teacher-error" class="alert alert-error hidden"></div>
-      <div id="create-teacher-success" class="alert alert-success hidden"></div>
-      <p style="font-size:.82rem;color:var(--muted);margin-bottom:12px;">
-        Creates a Firebase Auth account with the <strong>teacher</strong> role.
-        After saving, the registrar will be signed out briefly — please log back in.
-      </p>
-      <form id="create-teacher-form" autocomplete="off" onsubmit="return false;">
-      <div class="form-group">
-        <label class="form-label" for="ct-name">Full Name *</label>
-        <input type="text" id="ct-name" class="form-control" required placeholder="e.g. Maria Santos" autocomplete="name" />
-      </div>
-      <div class="form-group">
-        <label class="form-label" for="ct-email">Email *</label>
-        <input type="email" id="ct-email" class="form-control" required placeholder="teacher@school.edu" autocomplete="username" />
-      </div>
-      <div class="form-group">
-        <label class="form-label" for="ct-password">Password *</label>
-        <input type="password" id="ct-password" class="form-control" required placeholder="Minimum 6 characters" autocomplete="new-password" />
-      </div>
-      </form>
-    </div>
-    <div class="modal-footer">
-      <button class="btn btn-outline" id="create-teacher-cancel">Cancel</button>
-      <button class="btn btn-primary" id="create-teacher-save">Create Account</button>
-    </div>
-  </div>
-</div>
 
-<script type="module">
-  import { requireRole, logout, createTeacherAccount } from "../assets/js/auth.js";
+    <!-- STUDENT: Deactivate Confirm -->
+    <div class="modal-backdrop hidden" id="deactivate-backdrop">
+        <div class="modal" style="max-width:380px;">
+            <div class="modal-header"><div class="modal-title">Deactivate Student?</div></div>
+            <div class="modal-body">
+                <p style="font-size:.9rem;">
+                    Are you sure you want to deactivate <strong id="deactivate-name"></strong>?
+                    Their QR code will no longer be accepted at the scanner.
+                </p>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-outline" id="deactivate-cancel">Cancel</button>
+                <button class="btn btn-danger" id="deactivate-confirm">Deactivate</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- SECTION: Add/Edit Modal -->
+    <div class="modal-backdrop hidden" id="section-modal-backdrop">
+        <div class="modal" style="max-width:420px;" role="dialog" aria-modal="true">
+            <div class="modal-header">
+                <div class="modal-title" id="section-modal-title">Add Section</div>
+                <button class="modal-close" id="section-modal-close" aria-label="Close">&#10005;</button>
+            </div>
+            <div class="modal-body">
+                <div id="section-modal-error" class="alert alert-error hidden"></div>
+                <div id="section-modal-success" class="alert alert-success hidden"></div>
+                <input type="hidden" id="section-edit-id" />
+                <div class="form-group">
+                    <label class="form-label" for="section-name-input">Section Name *</label>
+                    <input type="text" id="section-name-input" class="form-control" required placeholder="e.g. Grade 7 — Mabini" />
+                </div>
+                <div class="form-group" id="section-teacher-group">
+                    <label class="form-label" for="section-teacher-select">Assign Teacher</label>
+                    <select id="section-teacher-select" class="form-control">
+                        <option value="">— Unassigned —</option>
+                    </select>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-outline" id="section-cancel-btn">Cancel</button>
+                <button class="btn btn-primary" id="section-save-btn">Save Section</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- SECTION: Deactivate Confirm -->
+    <div class="modal-backdrop hidden" id="section-deactivate-backdrop">
+        <div class="modal" style="max-width:380px;">
+            <div class="modal-header"><div class="modal-title">Deactivate Section?</div></div>
+            <div class="modal-body">
+                <p style="font-size:.9rem;">
+                    Are you sure you want to deactivate <strong id="section-deactivate-name"></strong>?
+                    Students in this section will remain but the section will be hidden from new assignments.
+                </p>
+                <p id="section-enrolled-warn" class="hidden" style="font-size:.85rem;color:var(--danger);margin-top:8px;">
+                    &#9888; This section currently has enrolled students.
+                </p>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-outline" id="section-deactivate-cancel">Cancel</button>
+                <button class="btn btn-danger" id="section-deactivate-confirm">Deactivate</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- TEACHER: Assign Sections Modal -->
+    <div class="modal-backdrop hidden" id="teacher-modal-backdrop">
+        <div class="modal" style="max-width:500px;" role="dialog" aria-modal="true">
+            <div class="modal-header">
+                <div class="modal-title">Assign Sections</div>
+                <button class="modal-close" id="teacher-modal-close" aria-label="Close">&#10005;</button>
+            </div>
+            <div class="modal-body">
+                <div id="teacher-modal-error" class="alert alert-error hidden"></div>
+                <div id="teacher-modal-success" class="alert alert-success hidden"></div>
+                <p style="font-size:.88rem;color:var(--muted);margin-bottom:12px;">
+                    Assigning sections to <strong id="teacher-modal-name"></strong>
+                </p>
+                <input type="hidden" id="teacher-edit-uid" />
+                <div id="teacher-section-checkboxes" class="section-checkbox-list"></div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-outline" id="teacher-cancel-btn">Cancel</button>
+                <button class="btn btn-primary" id="teacher-save-btn">Save Assignments</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- TEACHER: Create Account Modal -->
+    <div class="modal-backdrop hidden" id="create-teacher-backdrop">
+        <div class="modal" style="max-width:440px;" role="dialog" aria-modal="true">
+            <div class="modal-header">
+                <div class="modal-title">Add Teacher Account</div>
+                <button class="modal-close" id="create-teacher-close" aria-label="Close">&#10005;</button>
+            </div>
+            <div class="modal-body">
+                <div id="create-teacher-error" class="alert alert-error hidden"></div>
+                <div id="create-teacher-success" class="alert alert-success hidden"></div>
+                <p style="font-size:.82rem;color:var(--muted);margin-bottom:12px;">
+                    Creates a Firebase Auth account with the <strong>teacher</strong> role.
+                    After saving, the registrar will be signed out briefly — please log back in.
+                </p>
+                <form id="create-teacher-form" autocomplete="off" onsubmit="return false;">
+                    <div class="form-group">
+                        <label class="form-label" for="ct-name">Full Name *</label>
+                        <input type="text" id="ct-name" class="form-control" required placeholder="e.g. Maria Santos" autocomplete="name" />
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label" for="ct-email">Email *</label>
+                        <input type="email" id="ct-email" class="form-control" required placeholder="teacher@school.edu" autocomplete="username" />
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label" for="ct-password">Password *</label>
+                        <input type="password" id="ct-password" class="form-control" required placeholder="Minimum 6 characters" autocomplete="new-password" />
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-outline" id="create-teacher-cancel">Cancel</button>
+                <button class="btn btn-primary" id="create-teacher-save">Create Account</button>
+            </div>
+        </div>
+    </div>
+
+    <script type="module">import { requireRole, logout, createTeacherAccount } from "../assets/js/auth.js";
   import {
     getAllStudents, addStudent, updateStudent, deactivateStudent, getSections,
     addSection, updateSection, deactivateSection,
@@ -888,7 +1005,6 @@
   function esc(s) {
     const d = document.createElement("div");
     d.textContent = s || ""; return d.innerHTML;
-  }
-</script>
+  }</script>
 </body>
 </html>
