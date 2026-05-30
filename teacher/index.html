@@ -60,6 +60,10 @@
       <div class="stat-value" id="stat-out">—</div>
       <div class="stat-label">Time Out</div>
     </div>
+    <div class="stat-card" style="--stat-color:#dc2626;">
+      <div class="stat-value" id="stat-absent" style="color:#dc2626;">—</div>
+      <div class="stat-label">Absent</div>
+    </div>
   </div>
 
   <!-- Table -->
@@ -82,11 +86,12 @@
 
 <script type="module">
   import { requireRole, logout }               from "../assets/js/auth.js";
-  import { watchAttendanceByDate, getSections, getUser, manilaDate } from "../assets/js/firestore.js";
+  import { watchAttendanceByDate, getSections, getStudents, getUser, manilaDate } from "../assets/js/firestore.js";
 
   let unsub           = null;
   let assignedSections = [];  // section IDs this teacher owns
   let allSections      = [];  // full section objects
+  let allStudents      = [];  // all active students (for absent detection)
   let currentRows      = [];  // for CSV export
 
   document.getElementById("logout-btn").addEventListener("click", logout);
@@ -103,8 +108,9 @@
       const userDoc = await getUser(user.uid);
       assignedSections = (userDoc && userDoc.assigned_sections) ? userDoc.assigned_sections : [];
 
-      // Load all sections
+      // Load all sections and all active students
       allSections = await getSections();
+      allStudents = await getStudents();
 
       // Populate section picker with only teacher's sections
       const mySections = assignedSections.length
@@ -160,20 +166,45 @@
     const map = new Map();
     logs.forEach(log => {
       if (!map.has(log.student_id)) {
-        map.set(log.student_id, { name: log.student_name, section: log.section, timeIn: null, timeOut: null });
+        map.set(log.student_id, { name: log.student_name, section: log.section, section_id: log.section_id, timeIn: null, timeOut: null });
       }
       const row = map.get(log.student_id);
       if (log.type === "time_in"  && (!row.timeIn  || log.scan_time < row.timeIn))  row.timeIn  = log.scan_time;
       if (log.type === "time_out" && (!row.timeOut || log.scan_time > row.timeOut)) row.timeOut = log.scan_time;
     });
 
-    const rows  = [...map.values()];
-    const inCnt = rows.filter(r => r.timeIn).length;
-    const outCnt= rows.filter(r => r.timeOut).length;
+    // Determine which section(s) to check for absent students
+    const sectionId = sectionPicker.value || null;
+    const relevantSectionIds = sectionId
+      ? [sectionId]
+      : (assignedSections.length > 0 ? assignedSections : allSections.map(s => s.id));
 
-    document.getElementById("stat-total").textContent = rows.length;
-    document.getElementById("stat-in").textContent    = inCnt;
-    document.getElementById("stat-out").textContent   = outCnt;
+    // Add absent rows: active students in relevant sections who have no scan today
+    allStudents.forEach(student => {
+      const sid = student.section_id || null;
+      if (!relevantSectionIds.includes(sid)) return;
+      if (!map.has(student.id)) {
+        const secObj = allSections.find(s => s.id === sid);
+        map.set(student.id, {
+          name: `${student.first_name} ${student.last_name}`,
+          section: student.section_name || (secObj ? secObj.name : ""),
+          section_id: sid,
+          timeIn: null,
+          timeOut: null,
+          absent: true,
+        });
+      }
+    });
+
+    const rows   = [...map.values()];
+    const inCnt  = rows.filter(r => r.timeIn).length;
+    const outCnt = rows.filter(r => r.timeOut).length;
+    const absCnt = rows.filter(r => !r.timeIn).length;
+
+    document.getElementById("stat-total").textContent  = rows.filter(r => r.timeIn).length;
+    document.getElementById("stat-in").textContent     = inCnt;
+    document.getElementById("stat-out").textContent    = outCnt;
+    document.getElementById("stat-absent").textContent = absCnt;
     currentRows = rows;
 
     const tbody = document.getElementById("att-body");
@@ -183,15 +214,25 @@
       return;
     }
 
-    rows.sort((a, b) => (a.timeIn || "z").localeCompare(b.timeIn || "z"));
+    // Sort: present/left first (by timeIn), then absent (alphabetically)
+    rows.sort((a, b) => {
+      if (a.timeIn && b.timeIn) return a.timeIn.localeCompare(b.timeIn);
+      if (a.timeIn) return -1;
+      if (b.timeIn) return 1;
+      return (a.name || "").localeCompare(b.name || "");
+    });
 
     tbody.innerHTML = rows.map((row, i) => {
-      const hasOut  = !!row.timeOut;
-      const status  = hasOut
-        ? '<span class="badge badge-amber">Left</span>'
-        : '<span class="badge badge-green">Present</span>';
-      const timeIn  = row.timeIn  ? fmtTime(row.timeIn)  : '<span class="badge badge-gray">—</span>';
-      const timeOut = row.timeOut ? fmtTime(row.timeOut) : '<span class="badge badge-gray">—</span>';
+      let status;
+      if (!row.timeIn) {
+        status = '<span class="badge badge-red">Absent</span>';
+      } else if (row.timeOut) {
+        status = '<span class="badge badge-amber">Left</span>';
+      } else {
+        status = '<span class="badge badge-green">Present</span>';
+      }
+      const timeIn  = row.timeIn  ? fmtTime(row.timeIn)  : '<span style="color:var(--muted);">—</span>';
+      const timeOut = row.timeOut ? fmtTime(row.timeOut) : '<span style="color:var(--muted);">—</span>';
       return `<tr>
         <td style="color:var(--muted);font-size:.8rem;">${i + 1}</td>
         <td style="font-weight:600;">${esc(row.name)}</td>
@@ -219,7 +260,7 @@
       row.name, row.section,
       row.timeIn  ? fmtTime(row.timeIn)  : "",
       row.timeOut ? fmtTime(row.timeOut) : "",
-      row.timeOut ? "Left" : "Present",
+      !row.timeIn ? "Absent" : row.timeOut ? "Left" : "Present",
     ])];
     const csv   = csvRows.map(r => r.map(cell => `"${String(cell).replace(/"/g,'""')}"`).join(",")).join("\n");
     const blob  = new Blob([csv], { type: "text/csv" });
