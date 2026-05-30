@@ -1,108 +1,118 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Print QR Codes — JCExcellente</title>
-  <link rel="stylesheet" href="../assets/css/style.css" />
-  <!-- QRCode.js: QR code generator -->
-  <script src="https://cdn.jsdelivr.net/npm/qrcodejs@1.0.0/qrcode.min.js"></script>
-  <style>
-    .print-toolbar {
-      display: flex; gap: 12px; align-items: center;
-      padding: 14px 20px;
-      background: var(--surface);
-      border-bottom: 1px solid var(--border);
-      position: sticky; top: 0; z-index: 10;
-    }
-    .print-toolbar h2 { font-size: 1rem; font-weight: 700; flex: 1; }
-    @media print {
-      .print-toolbar { display: none; }
-      body { background: #fff; }
-    }
-  </style>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Print QR Codes — JCExcellente</title>
+    <link rel="stylesheet" href="../assets/css/style.css" />
+    <!-- QRCode.js: QR code generator -->
+    <script src="https://cdn.jsdelivr.net/npm/qrcodejs@1.0.0/qrcode.min.js"></script>
+    <style>
+        .print-toolbar {
+            display: flex;
+            gap: 12px;
+            align-items: center;
+            padding: 14px 20px;
+            background: var(--surface);
+            border-bottom: 1px solid var(--border);
+            position: sticky;
+            top: 0;
+            z-index: 10;
+        }
+
+            .print-toolbar h2 {
+                font-size: 1rem;
+                font-weight: 700;
+                flex: 1;
+            }
+
+        @media print {
+            .print-toolbar {
+                display: none;
+            }
+
+            body {
+                background: #fff;
+            }
+        }
+    </style>
 </head>
 <body>
 
-<!-- Toolbar (hidden on print) -->
-<div class="print-toolbar print-hide">
-  <h2>QR Code Cards — All Active Students</h2>
-  <a href="index.html" class="btn btn-outline btn-sm">← Back</a>
-  <button class="btn btn-primary btn-sm" onclick="window.print()">🖨 Print</button>
-</div>
+    <!-- Toolbar (hidden on print) -->
+    <div class="print-toolbar print-hide">
+        <h2>QR Code Cards — All Active Students</h2>
+        <a href="index.html" class="btn btn-outline btn-sm">← Back</a>
+        <button class="btn btn-primary btn-sm" onclick="window.print()">🖨 Print</button>
+    </div>
 
-<!-- Loading state -->
-<div id="loading" class="text-center" style="padding:40px;color:var(--muted);">
-  <div class="spinner"></div>
-  Loading students…
-</div>
+    <!-- Loading state -->
+    <div id="loading" class="text-center" style="padding:40px;color:var(--muted);">
+        <div class="spinner"></div>
+        Loading students…
+    </div>
 
-<!-- QR cards grid -->
-<div class="qr-grid" id="qr-grid" style="display:none;"></div>
+    <!-- QR cards grid -->
+    <div class="qr-grid" id="qr-grid" style="display:none;"></div>
 
-<!-- Error state -->
-<div id="error-msg" class="alert alert-error hidden" style="margin:20px;"></div>
+    <!-- Error state -->
+    <div id="error-msg" class="alert alert-error hidden" style="margin:20px;"></div>
 
-<script type="module">
-  import { requireRole, logout } from "../assets/js/auth.js";
-  import { getStudents }         from "../assets/js/firestore.js";
+    <script type="module">
+        import { requireRole, logout } from "../assets/js/auth.js";
+        import { getStudents } from "../assets/js/firestore.js";
 
-  requireRole("registrar", "principal")
-    .then(async () => {
-      const students = await getStudents(); // active only
-      renderCards(students);
-    })
-    .catch(() => {});
+        requireRole("registrar", "principal")
+            .then(async () => {
+                const students = await getStudents(); // active only
+                renderCards(students);
+            })
+            .catch(() => { });
 
-  function renderCards(students) {
-    document.getElementById("loading").style.display = "none";
+        function renderCards(students) {
+            document.getElementById("loading").style.display = "none";
 
-    if (students.length === 0) {
-      const err = document.getElementById("error-msg");
-      err.textContent = "No active students found.";
-      err.classList.remove("hidden");
-      return;
-    }
+            if (students.length === 0) {
+                const err = document.getElementById("error-msg");
+                err.textContent = "No active students found.";
+                err.classList.remove("hidden");
+                return;
+            }
 
-    const grid = document.getElementById("qr-grid");
-    grid.style.display = "grid";
+            const grid = document.getElementById("qr-grid");
+            grid.style.display = "grid";
 
-    students.forEach(student => {
-      const card = document.createElement("div");
-      card.className = "qr-card";
+            students.forEach(student => {
+                const card = document.createElement("div");
+                card.className = "qr-card";
 
-      const qrDiv  = document.createElement("div");
-      qrDiv.className = "qr-img";
+                const qrDiv = document.createElement("div");
+                qrDiv.className = "qr-img";
 
-      const nameDiv = document.createElement("div");
-      nameDiv.className = "qr-name";
-      nameDiv.textContent = `${student.first_name} ${student.last_name}`;
+                const nameDiv = document.createElement("div");
+                nameDiv.className = "qr-name";
+                nameDiv.textContent = `${student.first_name} ${student.last_name}`;
 
-      const idDiv = document.createElement("div");
-      idDiv.className = "qr-id";
-      idDiv.textContent = student.student_id || "";
+                card.appendChild(qrDiv);
+                card.appendChild(nameDiv);
+                grid.appendChild(card);
 
-      card.appendChild(qrDiv);
-      card.appendChild(nameDiv);
-      card.appendChild(idDiv);
-      grid.appendChild(card);
-
-      // Generate QR code into qrDiv
-      try {
-        new QRCode(qrDiv, {
-          text:          student.qr_code,
-          width:         120,
-          height:        120,
-          colorDark:     "#000000",
-          colorLight:    "#ffffff",
-          correctLevel:  QRCode.CorrectLevel.H,
-        });
-      } catch (err) {
-        qrDiv.textContent = "QR error";
-        console.error("QRCode error for", student.id, err);
-      }
-    });
-  }
-</script>
+                // Generate QR code into qrDiv
+                try {
+                    new QRCode(qrDiv, {
+                        text: student.qr_code,
+                        width: 192,
+                        height: 192,
+                        colorDark: "#000000",
+                        colorLight: "#ffffff",
+                        correctLevel: QRCode.CorrectLevel.H,
+                    });
+                } catch (err) {
+                    qrDiv.textContent = "QR error";
+                    console.error("QRCode error for", student.id, err);
+                }
+            });
+        }
+    </script>
 </body>
 </html>
